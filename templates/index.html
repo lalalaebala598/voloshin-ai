@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="{{ profile.language or 'ru' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voloshin AI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body
+  data-language="{{ profile.language or 'ru' }}"
+  data-server-key-enabled="{{ 'true' if server_key_enabled else 'false' }}"
+  data-server-model="{{ server_model }}"
+  data-profile-name="{{ profile.name }}"
+  data-profile-about="{{ profile.about }}"
+  data-profile-tone="{{ profile.tone }}"
+  data-profile-mode="{{ profile.mode }}"
+  data-logged-in="{{ 'true' if logged_in else 'false' }}"
+  data-user-email="{{ user_email }}"
+  data-profile-photo="{{ profile.photo_url or '' }}"
+>
+<script>
+window.TRANSLATIONS = {{ translations|tojson }};
+</script>
+<div class="welcome-gate" id="welcomeGate">
+  <div class="welcome-card glass-strong">
+    <div class="welcome-avatar">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="22" r="10"></circle>
+        <path d="M16 50c3-9 12-14 16-14s13 5 16 14"></path>
+      </svg>
+    </div>
+    <div class="welcome-title">Voloshin AI</div>
+    <div class="welcome-subtitle">Войди, зарегистрируйся или начни без регистрации.</div>
+    <div class="welcome-actions">
+      <button class="secondary-btn" id="welcomeRegisterBtn">Зарегистрироваться</button>
+      <button class="primary-btn" id="welcomeLoginBtn">Войти</button>
+    </div>
+    <div class="welcome-actions single">
+      <button class="soft-btn" id="welcomeGuestBtn">Начать без регистрации</button>
+    </div>
+  </div>
+</div>
+
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+<div class="bg-orb orb-3"></div>
+
+<div class="app-shell" id="appShell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-glass">
+      <div class="brand profile-entry" id="openProfileBtn">
+        <div class="profile-avatar-shell">
+          <img id="profileAvatarImg" class="hidden" alt="avatar">
+          <div id="profileAvatarFallback" class="profile-mark">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+              <circle cx="32" cy="22" r="10"></circle>
+              <path d="M16 50c3-9 12-14 16-14s13 5 16 14"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="brand-copy">
+          <div class="brand-subtitle solo-subtitle">{{ translations.profile }}</div>
+          <div class="profile-mini-text">edit profile</div>
+        </div>
+      </div>
+
+      <div class="sidebar-actions">
+        <button class="primary-btn" id="openSettingsAIBtn" data-i18n="connect_ai">{{ translations.connect_ai }}</button>
+        <button class="secondary-btn" id="newChatBtn" data-i18n="new_chat">{{ translations.new_chat }}</button>
+      </div>
+
+      
+
+      <div class="sidebar-actions compact-grid action-pair"><button class="secondary-btn" id="openTrainBtn" data-i18n="train">{{ translations.train }}</button><button class="secondary-btn" id="openImageBtn" data-i18n="images">{{ translations.images }}</button></div>
+
+      <div class="sidebar-section">
+        <div class="section-title" data-i18n="chat_history">{{ translations.chat_history }}</div>
+        <div id="chatList" class="chat-list">
+          {% for chat in chats %}
+          <div class="chat-row {% if chat.id == current_chat_id %}active{% endif %}">
+            <button class="chat-item" onclick="switchChat('{{ chat.id }}')">
+              <span class="chat-dot"></span>
+              <span class="chat-title">{{ chat.title }}</span>
+            </button>
+            <button class="delete-chat-btn" onclick="deleteChat('{{ chat.id }}')" title="Удалить чат">×</button>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="status-card">
+          <div class="status-line">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">{{ translations.local_mode }}</span>
+          </div>
+          <div class="status-meta" id="statusMeta">{{ translations.no_key }}</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar glass">
+      <div class="left-top">
+        <button class="brand-collapse-btn" id="brandCollapseBtn" title="Toggle">
+          <span id="brandCollapseIcon" class="chevron-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M15 5L8 12L15 19" /></svg>
+          </span>
+        </button>
+        <div>
+          <div class="top-title">Voloshin AI <span class="beta-badge">beta 01</span></div>
+          <div class="top-subtitle" data-i18n="subtitle">{{ translations.subtitle }}</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="openSettingsBtn" title="{{ translations.settings }}">⚙</button>
+        <div class="top-status">
+          <span class="status-dot" id="topStatusDot"></span>
+          <span id="modeLabel">local</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-banner glass" id="infoBanner">
+      <div class="banner-icon">i</div>
+      <div class="banner-text">
+        <div class="banner-title" data-i18n="banner_title">{{ translations.banner_title }}</div>
+        <div class="banner-subtitle" data-i18n="banner_sub">{{ translations.banner_sub }}</div>
+      </div>
+    </div>
+
+    <div id="messages" class="messages glass">
+      {% for msg in messages %}
+      <div class="message-wrap {{ 'msg-user' if msg.role == 'user' else 'msg-assistant' }}">
+        <div class="message-bubble">{{ msg.text }}</div>
+      </div>
+      {% if msg.role == 'assistant' %}
+      <div class="message-tools">
+        <button class="tool-btn copy-btn" data-copy="{{ msg.text|e }}">{{ translations.copy }}</button>
+        <button class="tool-btn like-btn" data-feedback="like" data-text="{{ msg.text|e }}">👍</button>
+        <button class="tool-btn dislike-btn" data-feedback="dislike" data-text="{{ msg.text|e }}">👎</button>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="composer glass">
+      <div class="attachment-wrap">
+        <button class="attach-btn" id="attachBtn" title="Add">+</button>
+        <div class="attach-menu hidden" id="attachMenu">
+          <label class="attach-option" for="photoInput" data-i18n="photo">{{ translations.photo }}</label>
+          <label class="attach-option" for="fileInput" data-i18n="file">{{ translations.file }}</label>
+          <button class="attach-option plain-btn" id="openImageBtnMenu" data-i18n="create_image">{{ translations.create_image }}</button>
+        </div>
+        <input id="photoInput" type="file" accept="image/*" hidden>
+        <input id="fileInput" type="file" accept=".txt,.md,.pdf,.docx" hidden>
+      </div>
+      <input id="input" type="text" placeholder="{{ translations.placeholder }}" onkeydown="handleKey(event)">
+      <button class="send-btn" onclick="sendMessage()">➜</button>
+    </div>
+  </main>
+</div>
+
+<!-- settings -->
+<div class="modal hidden" id="settingsModal">
+  <div class="modal-card glass-strong">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" data-i18n="settings">{{ translations.settings }}</div>
+      </div>
+      <button class="icon-btn" id="closeSettingsBtn">×</button>
+    </div>
+    <div class="field">
+      <label data-i18n="language">{{ translations.language }}</label>
+      <div class="select-pill-wrap custom-dropdown-wrap">
+        <select id="languageSelect" class="hidden-real-select">
+          <option value="ru">{{ translations.russian }}</option>
+          <option value="en">{{ translations.english }}</option>
+        </select>
+        <button class="model-display-btn custom-display-btn" type="button">
+          <span class="custom-display-value"></span>
+          <span class="model-caret"></span>
+        </button>
+        <div class="model-dropdown hidden">
+          <button class="model-option" data-value="ru" type="button">{{ translations.russian }}</button>
+          <button class="model-option" data-value="en" type="button">{{ translations.english }}</button>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Тема</label>
+      <div class="select-pill-wrap custom-dropdown-wrap">
+        <select id="themeSelect" class="hidden-real-select">
+          <option value="dark">Тёмная</option>
+          <option value="light">Светлая</option>
+          <option value="system">Авто по системе</option>
+        </select>
+        <button class="model-display-btn custom-display-btn" type="button">
+          <span class="custom-display-value"></span>
+          <span class="model-caret"></span>
+        </button>
+        <div class="model-dropdown hidden">
+          <button class="model-option" data-value="dark" type="button">Тёмная</button>
+          <button class="model-option" data-value="light" type="button">Светлая</button>
+          <button class="model-option" data-value="system" type="button">Авто по системе</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-btn" id="closeSettingsBtn2" data-i18n="close">{{ translations.close }}</button>
+      <button class="primary-btn" id="saveSettingsBtn" data-i18n="save">{{ translations.save }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- auth -->
+<div class="modal hidden" id="authModal">
+  <div class="modal-card glass-strong">
+    <div class="modal-header">
+      <div><div class="modal-title" id="authModalTitle">Вход в аккаунт</div></div>
+      <button class="icon-btn" id="closeAuthBtn">×</button>
+    </div>
+    <div id="authStatusText" class="modal-subtitle"></div>
+
+    <div id="authLoggedOut">
+      <div class="field">
+        <label data-i18n="email">{{ translations.email }}</label>
+        <input id="authEmail" type="email" placeholder="email@example.com">
+      </div>
+      <div class="field">
+        <label data-i18n="password">{{ translations.password }}</label>
+        <input id="authPassword" type="password" placeholder="••••••••">
+        <label class="check-row"><input id="toggleAuthPassword" type="checkbox"> <span>Показать пароль</span></label>
+      </div>
+      <div class="modal-actions" id="loginActions">
+        <button class="primary-btn" id="loginBtn" data-i18n="login">{{ translations.login }}</button>
+      </div>
+      <div class="modal-actions auth-actions single">
+        <button class="soft-btn" id="openRegisterModalBtn" type="button">Нет аккаунта? Зарегистрироваться</button>
+      </div>
+      <div class="modal-actions auth-actions single">
+        <button class="soft-btn" id="guestBtn">Начать без регистрации</button>
+      </div>
+      
+    </div>
+
+    <div id="authLoggedIn" class="hidden">
+      <div class="field">
+        <label data-i18n="logged_as">{{ translations.logged_as }}</label>
+        <div id="loggedEmail" class="readonly-pill"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="primary-btn" id="logoutBtn" data-i18n="logout">{{ translations.logout }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ai -->
+<div class="modal hidden" id="aiModal">
+  <div class="modal-card glass-strong">
+    <div class="modal-header">
+      <div><div class="modal-title" data-i18n="connect_ai">{{ translations.connect_ai }}</div></div>
+      <button class="icon-btn" id="closeAIBtn">×</button>
+    </div>
+    <div class="field">
+      <label data-i18n="model">{{ translations.model }}</label>
+      <div class="select-pill-wrap custom-dropdown-wrap">
+        <select id="modelInput" class="hidden-real-select">
+          <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+          <option value="llama3-70b-8192">llama3-70b-8192</option>
+          <option value="llama3-8b-8192">llama3-8b-8192</option>
+          <option value="mixtral-8x7b-32768">mixtral-8x7b-32768</option>
+        </select>
+        <button class="model-display-btn custom-display-btn" type="button">
+          <span class="custom-display-value"></span>
+          <span class="model-caret"></span>
+        </button>
+        <div class="model-dropdown hidden">
+          <button class="model-option" data-value="llama-3.3-70b-versatile" type="button">llama-3.3-70b-versatile</button>
+          <button class="model-option" data-value="llama3-70b-8192" type="button">llama3-70b-8192</button>
+          <button class="model-option" data-value="llama3-8b-8192" type="button">llama3-8b-8192</button>
+          <button class="model-option" data-value="mixtral-8x7b-32768" type="button">mixtral-8x7b-32768</button>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Groq API key</label>
+      <input id="apiKeyInput" type="password" placeholder="Paste Groq API key">
+    </div>
+    <div class="modal-links">
+      <a class="link-btn" href="https://console.groq.com/keys" target="_blank" rel="noreferrer">Open Groq keys page</a>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-btn" id="clearAIBtn">Очистить</button>
+      <button class="primary-btn" id="saveAIBtn">{{ translations.save }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- profile -->
+<div class="modal hidden" id="profileModal">
+  <div class="modal-card glass-strong">
+    <div class="modal-header">
+      <div><div class="modal-title" data-i18n="profile_title">{{ translations.profile_title }}</div></div>
+      <button class="icon-btn" id="closeProfileBtn">×</button>
+    </div>
+    <div class="field">
+      <label data-i18n="name">{{ translations.name }}</label>
+      <input id="profileName" type="text">
+    </div>
+    <div class="field">
+      <label data-i18n="about">{{ translations.about }}</label>
+      <input id="profileAbout" type="text">
+    </div>
+    <div class="field">
+      <label data-i18n="style">{{ translations.style }}</label>
+      <div class="select-pill-wrap custom-dropdown-wrap">
+        <select id="toneSelect" class="hidden-real-select">
+          <option value="normal">{{ translations.normal }}</option>
+          <option value="rude">{{ translations.rude }}</option>
+          <option value="polite">{{ translations.polite }}</option>
+        </select>
+        <button class="model-display-btn custom-display-btn" type="button">
+          <span class="custom-display-value"></span>
+          <span class="model-caret"></span>
+        </button>
+        <div class="model-dropdown hidden">
+          <button class="model-option" data-value="normal" type="button">{{ translations.normal }}</button>
+          <button class="model-option" data-value="rude" type="button">{{ translations.rude }}</button>
+          <button class="model-option" data-value="polite" type="button">{{ translations.polite }}</button>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label data-i18n="mode">{{ translations.mode }}</label>
+      <div class="select-pill-wrap custom-dropdown-wrap">
+        <select id="modeSelect" class="hidden-real-select">
+          <option value="normal">{{ translations.normal }}</option>
+          <option value="teacher">{{ translations.teacher }}</option>
+          <option value="coder">{{ translations.coder }}</option>
+          <option value="brief">{{ translations.brief }}</option>
+        </select>
+        <button class="model-display-btn custom-display-btn" type="button">
+          <span class="custom-display-value"></span>
+          <span class="model-caret"></span>
+        </button>
+        <div class="model-dropdown hidden">
+          <button class="model-option" data-value="normal" type="button">{{ translations.normal }}</button>
+          <button class="model-option" data-value="teacher" type="button">{{ translations.teacher }}</button>
+          <button class="model-option" data-value="coder" type="button">{{ translations.coder }}</button>
+          <button class="model-option" data-value="brief" type="button">{{ translations.brief }}</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-divider">
+      <div class="settings-divider-title">Данные профиля</div>
+      <div class="settings-divider-subtitle">Имя, описание и стиль ответов.</div>
+    </div>
+    <div class="modal-actions profile-action-row">
+      <button class="primary-btn" id="saveProfileBtn" data-i18n="save_profile">{{ translations.save_profile }}</button>
+    </div>
+
+    <div class="settings-divider">
+      <div class="settings-divider-title">Аккаунт и безопасность</div>
+      <div class="settings-divider-subtitle">Почта, пароль и фото профиля.</div>
+    </div>
+    <div class="field">
+      <label>Почта аккаунта</label>
+      <input id="accountEmail" type="email" placeholder="email@example.com">
+    </div>
+    <div class="field">
+      <label>Текущий пароль</label>
+      <input id="currentAccountPassword" type="password" placeholder="Нужен только если меняешь пароль">
+    </div>
+    <div class="field">
+      <label>Новый пароль</label>
+      <input id="accountPassword" type="password" placeholder="Оставь пустым, если менять не нужно">
+      <label class="check-row"><input id="toggleAccountPassword" type="checkbox"> <span>Показать пароль</span></label>
+    </div>
+    <div class="field">
+      <label>Фото профиля</label>
+      <input id="profilePhotoFile" type="file" accept="image/*">
+      <input id="profilePhotoUrl" type="hidden">
+      <div class="modal-actions photo-save-row">
+        <button class="soft-btn" id="savePhotoBtn" type="button">Сохранить фото</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-btn" id="closeProfileBtn2" data-i18n="close">{{ translations.close }}</button>
+      <button class="soft-btn" id="logoutFromProfileBtn">Выйти</button>
+      <button class="soft-btn" id="saveAccountBtn">Сохранить аккаунт и безопасность</button>
+    </div>
+  </div>
+</div>
+
+<!-- train -->
+<div class="modal hidden" id="trainModal">
+  <div class="modal-card glass-strong">
+    <div class="modal-header">
+      <div><div class="modal-title" data-i18n="train_title">{{ translations.train_title }}</div></div>
+      <button class="icon-btn" id="closeTrainBtn">×</button>
+    </div>
+    <div class="field">
+      <label data-i18n="question">{{ translations.question }}</label>
+      <input id="trainQ" type="text">
+    </div>
+    <div class="field">
+      <label data-i18n="answer">{{ translations.answer }}</label>
+      <input id="trainA" type="text">
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-btn" id="closeTrainBtn2" data-i18n="close">{{ translations.close }}</button>
+      <button class="primary-btn" id="saveTrainBtn" data-i18n="save_train">{{ translations.save_train }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- image -->
+<div class="modal hidden" id="imageModal">
+  <div class="modal-card glass-strong">
+    <div class="modal-header">
+      <div><div class="modal-title" data-i18n="image_title">{{ translations.image_title }}</div></div>
+      <button class="icon-btn" id="closeImageBtn">×</button>
+    </div>
+    <div class="field">
+      <label data-i18n="image_prompt">{{ translations.image_prompt }}</label>
+      <input id="imagePrompt" type="text">
+    </div>
+    <div class="field">
+      <label data-i18n="hf_token">{{ translations.hf_token }}</label>
+      <input id="imageToken" type="password">
+    </div>
+    <div class="field">
+      <label data-i18n="model">{{ translations.model }}</label>
+      <div class="select-pill-wrap custom-dropdown-wrap">
+        <select id="imageModel" class="hidden-real-select">
+          <option value="stabilityai/stable-diffusion-xl-base-1.0">SDXL Base 1.0</option>
+          <option value="black-forest-labs/FLUX.1-schnell">FLUX.1-schnell</option>
+        </select>
+        <button class="model-display-btn custom-display-btn" type="button">
+          <span class="custom-display-value"></span>
+          <span class="model-caret"></span>
+        </button>
+        <div class="model-dropdown hidden">
+          <button class="model-option" data-value="stabilityai/stable-diffusion-xl-base-1.0" type="button">SDXL Base 1.0</button>
+          <button class="model-option" data-value="black-forest-labs/FLUX.1-schnell" type="button">FLUX.1-schnell</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-links">
+      <a class="link-btn" href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" data-i18n="get_hf">{{ translations.get_hf }}</a>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-btn" id="closeImageBtn2" data-i18n="close">{{ translations.close }}</button>
+      <button class="primary-btn" id="generateImageBtn" data-i18n="create_image_btn">{{ translations.create_image_btn }}</button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+
+
+<div class="modal hidden" id="registerModal">
+  <div class="modal-card glass-strong">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Регистрация</div>
+        <div class="modal-subtitle">Создай аккаунт по почте и паролю.</div>
+      </div>
+      <button class="icon-btn" id="closeRegisterModalBtn">×</button>
+    </div>
+
+    <div class="field">
+      <label>Почта</label>
+      <input id="registerEmail" type="email" placeholder="email@example.com">
+    </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input id="registerPassword" type="password" placeholder="••••••••">
+      <label class="check-row"><input id="toggleRegisterPassword" type="checkbox"> <span>Показать пароль</span></label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="secondary-btn" id="switchToLoginBtn" type="button">Уже есть аккаунт? Войти</button>
+      <button class="primary-btn" id="registerOnlyBtn" type="button">Зарегистрироваться</button>
+    </div>
+  </div>
+</div>
+
+<div id="appToast" class="app-toast hidden"></div>
+</body>
+</html>
