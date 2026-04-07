@@ -530,7 +530,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  async function loadProfileIntoModal() {
+  async function loadProfileIntoModal() { closeSidebarMobile();
     if (!isLoggedIn()) {
       openLoginModal();
       return;
@@ -750,24 +750,24 @@ document.addEventListener("DOMContentLoaded", () => {
   function initEvents() {
     $("brandCollapseBtn").onclick = toggleSidebar;
     mobileSidebarCloseBtn && (mobileSidebarCloseBtn.onclick = closeSidebarMobile);
-    $("openSettingsBtn").onclick = () => {
+    $("openSettingsBtn").onclick = () => { closeSidebarMobile();
       languageSelect.value = body.dataset.language || "ru";
       themeSelect.value = getPreferredTheme();
       settingsModal.classList.remove("hidden");
       document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
     };
-    $("openSettingsAIBtn").onclick = () => {
+    $("openSettingsAIBtn").onclick = () => { closeSidebarMobile();
       const cfg = getConfig();
       modelInput.value = cfg.model;
       apiKeyInput.value = cfg.apiKey;
       aiModal.classList.remove("hidden");
       document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
     };
-    $("newChatBtn").onclick = createNewChat;
+    $("newChatBtn").onclick = () => { closeSidebarMobile(); createNewChat(); };
     $("openProfileBtn").onclick = loadProfileIntoModal;
-    $("openTrainBtn").onclick = () => trainModal.classList.remove("hidden");
-    $("openImageBtn").onclick = openImageModal;
-    $("openImageBtnMenu").onclick = openImageModal;
+    $("openTrainBtn").onclick = () => { closeSidebarMobile(); trainModal.classList.remove("hidden"); };
+    $("openImageBtn").onclick = () => { closeSidebarMobile(); openImageModal(); };
+    $("openImageBtnMenu").onclick = () => { closeSidebarMobile(); openImageModal(); };
 
     $("closeSettingsBtn").onclick = () => settingsModal.classList.add("hidden");
     $("closeSettingsBtn2").onclick = () => settingsModal.classList.add("hidden");
