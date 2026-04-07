@@ -119,7 +119,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
         <div class="status-card">
           <div class="status-line">
             <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">{{ translations.local_mode }}</span>
+            <span id="statusText">Серверное ядро</span>
           </div>
           <div class="status-meta hidden" id="statusMeta"></div>
         </div>
@@ -180,7 +180,6 @@ window.TRANSLATIONS = {{ translations|tojson }};
           <label class="attach-option" for="photoInput" data-i18n="photo">{{ translations.photo }}</label>
           <label class="attach-option" for="cameraInput">Камера</label>
           <label class="attach-option" for="fileInput" data-i18n="file">{{ translations.file }}</label>
-          <button class="attach-option plain-btn" id="openImageBtnMenu" data-i18n="create_image">{{ translations.create_image }}</button>
         </div>
         <input id="photoInput" type="file" accept="image/*" hidden>
         <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
@@ -245,6 +244,23 @@ window.TRANSLATIONS = {{ translations|tojson }};
           <button class="model-option" data-value="dark" type="button">Тёмная</button>
           <button class="model-option" data-value="light" type="button">Светлая</button>
           <button class="model-option" data-value="system" type="button">Авто по системе</button>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Голос AI</label>
+      <div class="select-pill-wrap custom-dropdown-wrap">
+        <select id="settingsVoiceGenderSelect" class="hidden-real-select">
+          <option value="male">Мужской</option>
+          <option value="female">Женский</option>
+        </select>
+        <button class="model-display-btn custom-display-btn" type="button">
+          <span class="custom-display-value"></span>
+          <span class="model-caret"></span>
+        </button>
+        <div class="model-dropdown hidden">
+          <button class="model-option" data-value="male" type="button">Мужской</button>
+          <button class="model-option" data-value="female" type="button">Женский</button>
         </div>
       </div>
     </div>
@@ -353,12 +369,9 @@ window.TRANSLATIONS = {{ translations|tojson }};
     </div>
     <div class="field">
       <label data-i18n="about">{{ translations.about }}</label>
-      <input id="profileAbout" type="text" placeholder="Например: Меня зовут Никита, мне 19 лет, люблю жёсткий стиль общения.">
+      <input id="profileAbout" type="text" placeholder="Например: Меня зовут Артём, мне 20 лет, люблю смотреть спорт.">
     </div>
-    <div class="profile-hints">
-      <div class="mini-mode-pill" id="activeTonePill">Стиль: нормальный</div>
-      <div class="mini-mode-pill" id="activeModePill">Режим: обычный</div>
-    </div>
+    
     <div class="field">
       <label data-i18n="style">{{ translations.style }}</label>
       <div class="select-pill-wrap custom-dropdown-wrap">
@@ -398,23 +411,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
           <button class="model-option" data-value="brief" type="button">{{ translations.brief }}</button>
         </div>
       </div>
-    </div>
-    <div class="field">
-      <label>Голос AI</label>
-      <div class="select-pill-wrap custom-dropdown-wrap">
-        <select id="voiceGenderSelect" class="hidden-real-select">
-          <option value="male">Мужской</option>
-          <option value="female">Женский</option>
-        </select>
-        <button class="model-display-btn custom-display-btn" type="button">
-          <span class="custom-display-value"></span>
-          <span class="model-caret"></span>
-        </button>
-        <div class="model-dropdown hidden">
-          <button class="model-option" data-value="male" type="button">Мужской</button>
-          <button class="model-option" data-value="female" type="button">Женский</button>
-        </div>
-      </div>
+    </div></div>
     </div>
     <div class="settings-divider">
       <div class="settings-divider-title">Данные профиля</div>
@@ -425,10 +422,6 @@ window.TRANSLATIONS = {{ translations|tojson }};
     <div class="settings-divider">
       <div class="settings-divider-title">Аккаунт и безопасность</div>
       <div class="settings-divider-subtitle">Почта, пароль и фото профиля.</div>
-    </div>
-    <div class="field">
-      <label>Почта аккаунта</label>
-      <input id="accountEmail" type="email" placeholder="email@example.com">
     </div>
     <div class="field">
       <label>Текущий пароль</label>
@@ -471,20 +464,27 @@ window.TRANSLATIONS = {{ translations|tojson }};
       <label>Почта аккаунта</label>
       <input id="accountEmail" type="email" placeholder="email@example.com">
     </div>
-    <div class="field custom-check-field">
-      <label>Текущий пароль</label>
-      <input id="currentAccountPassword" type="password" placeholder="Нужен только если меняешь пароль">
-      <label class="check-row pretty-check"><input id="toggleCurrentAccountPassword" type="checkbox"><span class="check-ui"></span><span>Показать пароль</span></label>
-    </div>
-    <div class="field custom-check-field">
-      <label>Новый пароль</label>
-      <input id="accountPassword" type="password" placeholder="Оставь пустым, если менять не нужно">
-      <label class="check-row pretty-check"><input id="toggleAccountPassword" type="checkbox"><span class="check-ui"></span><span>Показать пароль</span></label>
-    </div>
     <div class="modal-actions">
       <button class="secondary-btn" id="closeAccountModalBtn2">Закрыть</button>
       <button class="soft-btn" id="saveAccountBtn">Сохранить</button>
       <button class="danger-btn" id="logoutFromProfileBtn">Выйти</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal hidden" id="confirmLogoutModal">
+  <div class="modal-card glass-strong small-confirm">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Выйти из аккаунта?</div>
+        <div class="modal-subtitle">Сессия завершится на этом устройстве.</div>
+      </div>
+      <button class="icon-btn" id="closeConfirmLogoutBtn">×</button>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-btn" id="cancelLogoutBtn">Отмена</button>
+      <button class="danger-btn" id="confirmLogoutBtn">Выйти</button>
     </div>
   </div>
 </div>

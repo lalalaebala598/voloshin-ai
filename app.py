@@ -24,7 +24,7 @@ SERVER_GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
 
 TRANSLATIONS = {
     "ru": {
-        "subtitle": "Стеклянный интерфейс + голосовой ввод + изображения",
+        "subtitle": "Стеклянный интерфейс + голосовой ввод + умный чат",
         "private_chat": "Приватный AI-чат",
         "connect_ai": "Подключить AI",
         "new_chat": "Новый чат",
@@ -322,6 +322,14 @@ def profile_memory_answers(profile: dict, question: str):
     name = (profile.get("name") or "").strip()
     about = (profile.get("about") or "").strip()
 
+    creator_triggers = [
+        "кто тебя создал", "кто твой создатель", "кто тебя сделал",
+        "от кого ты произошел", "от кого ты произошёл", "кто разработчик",
+        "кто твой разработчик"
+    ]
+    if any(t in q for t in creator_triggers):
+        return "Меня создал разработчик Волошин Н.А."
+
     if ("как меня зовут" in q or "кто я" in q or "мое имя" in q or "моё имя" in q) and name:
         return f"Тебя зовут {name}."
     if ("что ты помнишь" in q or "что ai должен помнить" in q or "что ты знаешь обо мне" in q) and (name or about):
@@ -342,25 +350,35 @@ def style_reply_text(text: str, profile: dict):
     mode = profile.get("mode", "normal")
     result = text.strip()
 
+    if mode == "brief":
+        parts = re.split(r"(?<=[.!?])\s+", result)
+        result = parts[0].strip() if parts else result.strip()
+
     if tone == "polite":
         if not result.endswith(("!", ".", "?", "…")):
             result += "."
-        if not result.lower().startswith(("пожалуйста", "конечно", "давайте", "с удовольствием")):
-            result = "Конечно. " + result
+        polite_prefixes = ["Конечно.", "Пожалуйста.", "С удовольствием.", "Хорошо."]
+        if not result.lower().startswith(("пожалуйста", "конечно", "давайте", "с удовольствием", "хорошо")):
+            result = random.choice(polite_prefixes) + " " + result
     elif tone == "rude":
-        if not result.lower().startswith(("Окей", "Ладно", "Смотри", "Ну", "Короче")):
-            result = "Смотри. " + result
+        rude_prefixes = [
+            "Не, ну смотри,", "Короче,", "Ну бля, смотри,", "Сейчас по факту,"
+        ]
+        if mode == "brief":
+            result = random.choice(rude_prefixes) + " " + result.lstrip("., ")
+        elif not any(result.lower().startswith(p.lower()) for p in rude_prefixes):
+            result = random.choice(rude_prefixes) + " " + result
+        result = result.replace("Конечно. ", "").replace("Пожалуйста. ", "")
 
     if mode == "brief":
-        result = result.split(". ")[0].strip()
         if not result.endswith((".", "!", "?")):
             result += "."
     elif mode == "teacher":
-        if "Давай" not in result and "например" not in result.lower():
+        if "например" not in result.lower() and "по шагам" not in result.lower():
             result += " Если хочешь, могу разложить ещё по шагам и на простом примере."
     elif mode == "coder":
-        if "код" not in result.lower() and "пример" not in result.lower():
-            result += " Если нужно, могу сразу показать пример кода или структуру решения."
+        if "код" not in result.lower() and "пример" not in result.lower() and "алгоритм" not in result.lower():
+            result += " Если нужно, могу сразу показать пример кода, структуру решения или алгоритм."
 
     return result
 
@@ -426,7 +444,8 @@ def parse_uploaded_file(file_storage):
         if PdfReader is None:
             return filename, "Для чтения PDF нужен пакет pypdf.", None
         reader = PdfReader(io.BytesIO(file_storage.read()))
-        text = "\n".join((page.extract_text() or "") for page in reader.pages[:10])
+        text = "
+".join((page.extract_text() or "") for page in reader.pages[:10])
         return filename, text[:9000], None
     if ext == ".docx":
         if Document is None:
@@ -434,7 +453,8 @@ def parse_uploaded_file(file_storage):
         temp = os.path.join(UPLOAD_DIR, filename)
         file_storage.save(temp)
         doc = Document(temp)
-        text = "\n".join(p.text for p in doc.paragraphs)[:9000]
+        text = "
+".join(p.text for p in doc.paragraphs)[:9000]
         try: os.remove(temp)
         except Exception: pass
         return filename, text, None
@@ -500,9 +520,11 @@ def logout():
 def save_settings():
     if not uid():
         return jsonify({"ok": False, "error": tr("auth_required")}), 401
-    language = str((request.get_json(silent=True) or {}).get("language","ru")).strip() or "ru"
+    data = request.get_json(silent=True) or {}
+    language = str(data.get("language","ru")).strip() or "ru"
+    voice_gender = str(data.get("voice_gender","male")).strip() or "male"
     conn = db()
-    conn.execute("UPDATE users SET language=? WHERE id=?", (language, uid()))
+    conn.execute("UPDATE users SET language=?, voice_gender=? WHERE id=?", (language, voice_gender, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -567,7 +589,7 @@ def upload_file():
     filename, extracted, image_url = parse_uploaded_file(file_storage)
     if image_url:
         add_message(cid, "user", f"[Изображение: {filename}]")
-        add_message(cid, "assistant", f"Изображение «{filename}» получил. Можешь спросить, что на нём, попросить описание или анализ.")
+        add_message(cid, "assistant", f"Изображение «{filename}» получил. Можешь попросить описание, короткий разбор или выделить текст/объекты, если модель это поддерживает.")
         return jsonify({"ok": True, "filename": filename, "image_url": image_url, "text": ""})
     add_message(cid, "user", f"[Файл: {filename}]")
     add_message(cid, "assistant", f"Файл «{filename}» получил. Можешь спросить, что с ним сделать.")
