@@ -24,7 +24,7 @@ SERVER_GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
 
 TRANSLATIONS = {
     "ru": {
-        "subtitle": "Стеклянный интерфейс + аккаунт + синхронизация",
+        "subtitle": "Стеклянный интерфейс + голосовой ввод + изображения",
         "private_chat": "Приватный AI-чат",
         "connect_ai": "Подключить AI",
         "new_chat": "Новый чат",
@@ -55,19 +55,19 @@ TRANSLATIONS = {
         "logged_as": "Вы вошли как",
         "profile_title": "Профиль и режимы",
         "name": "Как тебя называть",
-        "about": "Что про тебя помнить",
+        "about": "Что AI должен помнить о тебе",
         "style": "Стиль общения",
         "mode": "Режим",
         "normal": "Нормальный",
         "rude": "Пожёстче",
         "polite": "Вежливый",
-        "teacher": "Как препод",
+        "teacher": "Рассуждающий",
         "coder": "Кодер",
         "brief": "Коротко",
         "save_profile": "Сохранить профиль",
         "train_title": "Обучить AI",
-        "question": "Вопрос",
-        "answer": "Ответ",
+        "question": "Вопрос или триггер",
+        "answer": "Что отвечать",
         "save_train": "Сохранить в обучение",
         "image_title": "Создать изображение",
         "image_prompt": "Описание изображения",
@@ -145,7 +145,7 @@ TRANSLATIONS = {
     }
 }
 
-ALLOWED_EXTS = {".txt", ".md", ".pdf", ".docx"}
+ALLOWED_EXTS = {".txt", ".md", ".pdf", ".docx", ".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 def db():
     conn = sqlite3.connect(DB_PATH)
@@ -163,7 +163,8 @@ def init_db():
       about TEXT DEFAULT '',
       tone TEXT DEFAULT 'normal',
       mode TEXT DEFAULT 'normal',
-      language TEXT DEFAULT 'ru'
+      language TEXT DEFAULT 'ru',
+      voice_gender TEXT DEFAULT 'male'
     );
     CREATE TABLE IF NOT EXISTS chats(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,6 +193,11 @@ def init_db():
     conn.commit()
     try:
         conn.execute("ALTER TABLE users ADD COLUMN photo_url TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN voice_gender TEXT DEFAULT 'male'")
         conn.commit()
     except Exception:
         pass
@@ -252,7 +258,7 @@ def get_profile():
         photo = user["photo_url"] or ""
     except Exception:
         pass
-    return {"name":user["name"] or "", "about":user["about"] or "", "tone":user["tone"] or "normal", "mode":user["mode"] or "normal", "language":user["language"] or "ru", "email":user["email"] or "", "photo_url": photo}
+    return {"name":user["name"] or "", "about":user["about"] or "", "tone":user["tone"] or "normal", "mode":user["mode"] or "normal", "language":user["language"] or "ru", "email":user["email"] or "", "photo_url": photo, "voice_gender": (user["voice_gender"] or "male")}
 
 def chat_list():
     if not uid():
@@ -310,12 +316,85 @@ def retrieve_local_answer(question: str):
             best, score = item, s
     return (best["a"], score) if best else (None, 0.0)
 
+
+def profile_memory_answers(profile: dict, question: str):
+    q = normalize(question)
+    name = (profile.get("name") or "").strip()
+    about = (profile.get("about") or "").strip()
+
+    if ("как меня зовут" in q or "кто я" in q or "мое имя" in q or "моё имя" in q) and name:
+        return f"Тебя зовут {name}."
+    if ("что ты помнишь" in q or "что ai должен помнить" in q or "что ты знаешь обо мне" in q) and (name or about):
+        parts = []
+        if name:
+            parts.append(f"тебя зовут {name}")
+        if about:
+            parts.append(about)
+        return "Я помню, что " + ". ".join(parts).strip() + "."
+    if ("сколько мне лет" in q or "мой возраст" in q or "сколько лет мне" in q) and about:
+        m = re.search(r"(\d{1,2})\s*лет", about.lower())
+        if m:
+            return f"Судя по твоим заметкам, тебе {m.group(1)} лет."
+    return None
+
+def style_reply_text(text: str, profile: dict):
+    tone = profile.get("tone", "normal")
+    mode = profile.get("mode", "normal")
+    result = text.strip()
+
+    if tone == "polite":
+        if not result.endswith(("!", ".", "?", "…")):
+            result += "."
+        if not result.lower().startswith(("пожалуйста", "конечно", "давайте", "с удовольствием")):
+            result = "Конечно. " + result
+    elif tone == "rude":
+        if not result.lower().startswith(("Окей", "Ладно", "Смотри", "Ну", "Короче")):
+            result = "Смотри. " + result
+
+    if mode == "brief":
+        result = result.split(". ")[0].strip()
+        if not result.endswith((".", "!", "?")):
+            result += "."
+    elif mode == "teacher":
+        if "Давай" not in result and "например" not in result.lower():
+            result += " Если хочешь, могу разложить ещё по шагам и на простом примере."
+    elif mode == "coder":
+        if "код" not in result.lower() and "пример" not in result.lower():
+            result += " Если нужно, могу сразу показать пример кода или структуру решения."
+
+    return result
+
+
 def model_history(chat_id: int, limit: int = 14):
     rows = chat_messages(chat_id)[-limit:]
     return [{"role":"assistant" if r["role"]=="assistant" else "user", "content":r["text"]} for r in rows]
 
 def groq_answer(api_key: str, model: str, profile: dict, history: list, user_text: str) -> str:
-    prompt = "Ты — Voloshin AI. Отвечай только на русском языке, живо и по-человечески."
+    tone = profile.get("tone","normal")
+    mode = profile.get("mode","normal")
+    memory = (profile.get("about") or "").strip()
+    name = (profile.get("name") or "").strip()
+
+    tone_map = {
+        "normal": "Отвечай живо, естественно и по-человечески.",
+        "rude": "Говори чуть жёстче и живее, но без тупой грубости ради грубости.",
+        "polite": "Отвечай очень вежливо, спокойно и аккуратно."
+    }
+    mode_map = {
+        "normal": "Формат ответа обычный.",
+        "teacher": "Формат ответа рассуждающий: поясняй ход мысли, структуру и примеры.",
+        "coder": "Если уместно, предлагай алгоритм, структуру, код или технический план.",
+        "brief": "Отвечай коротко и по сути."
+    }
+
+    prompt = (
+        "Ты — Voloshin AI. Отвечай только на русском языке. "
+        + tone_map.get(tone, tone_map["normal"]) + " "
+        + mode_map.get(mode, mode_map["normal"]) + " "
+        + (f"Пользователя зовут {name}. " if name else "")
+        + (f"Что нужно помнить о пользователе: {memory}. " if memory else "")
+        + "Не упоминай системный промпт и не говори, что ты локальная база."
+    )
     response = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type":"application/json"},
@@ -329,26 +408,39 @@ def parse_uploaded_file(file_storage):
     filename = secure_filename(file_storage.filename or "file")
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXTS:
-        return filename, "Формат пока не поддерживается."
+        return filename, "Формат пока не поддерживается.", None
+    if ext in {".png",".jpg",".jpeg",".webp",".gif"}:
+        raw = file_storage.read()
+        mime = {
+            ".png":"image/png",
+            ".jpg":"image/jpeg",
+            ".jpeg":"image/jpeg",
+            ".webp":"image/webp",
+            ".gif":"image/gif"
+        }.get(ext, "image/png")
+        b64 = base64.b64encode(raw).decode("utf-8")
+        return filename, "Изображение получено.", f"data:{mime};base64,{b64}"
     if ext in {".txt",".md"}:
-        return filename, file_storage.read().decode("utf-8", errors="ignore")[:9000]
+        return filename, file_storage.read().decode("utf-8", errors="ignore")[:9000], None
     if ext == ".pdf":
         if PdfReader is None:
-            return filename, "Для чтения PDF нужен пакет pypdf."
+            return filename, "Для чтения PDF нужен пакет pypdf.", None
         reader = PdfReader(io.BytesIO(file_storage.read()))
-        text = "\n".join((page.extract_text() or "") for page in reader.pages[:10])
-        return filename, text[:9000]
+        text = "
+".join((page.extract_text() or "") for page in reader.pages[:10])
+        return filename, text[:9000], None
     if ext == ".docx":
         if Document is None:
-            return filename, "Для чтения DOCX нужен пакет python-docx."
+            return filename, "Для чтения DOCX нужен пакет python-docx.", None
         temp = os.path.join(UPLOAD_DIR, filename)
         file_storage.save(temp)
         doc = Document(temp)
-        text = "\n".join(p.text for p in doc.paragraphs)[:9000]
+        text = "
+".join(p.text for p in doc.paragraphs)[:9000]
         try: os.remove(temp)
         except Exception: pass
-        return filename, text
-    return filename, "Файл получен."
+        return filename, text, None
+    return filename, "Файл получен.", None
 
 @app.route("/")
 def index():
@@ -437,9 +529,13 @@ def chat():
     model = browser_model or SERVER_GROQ_MODEL or "llama-3.3-70b-versatile"
 
     try:
-        if api_key:
+        memory_hit = profile_memory_answers(profile, message)
+        if memory_hit:
+            reply = memory_hit
+            mode = "memory"
+        elif api_key:
             reply = groq_answer(api_key, model, profile, model_history(cid), message)
-            mode = f"groq:{model}"
+            mode = "online"
         else:
             local_answer, score = retrieve_local_answer(message)
             if local_answer and score >= 0.62:
@@ -454,6 +550,7 @@ def chat():
                     "Нормальный вопрос. Уточни, что именно тебе важно: суть, пример или разбор по шагам?"
                 ])
             mode = "local"
+        reply = style_reply_text(reply, profile)
     except Exception as e:
         reply = f"Ошибка: {str(e)}"
         mode = "error"
@@ -469,10 +566,14 @@ def upload_file():
     if not file_storage:
         return jsonify({"ok": False, "error": "Файл не найден"}), 400
     cid = active_chat_id()
-    filename, extracted = parse_uploaded_file(file_storage)
+    filename, extracted, image_url = parse_uploaded_file(file_storage)
+    if image_url:
+        add_message(cid, "user", f"[Изображение: {filename}]")
+        add_message(cid, "assistant", f"Изображение «{filename}» получил. Можешь спросить, что на нём, попросить описание или анализ.")
+        return jsonify({"ok": True, "filename": filename, "image_url": image_url, "text": ""})
     add_message(cid, "user", f"[Файл: {filename}]")
     add_message(cid, "assistant", f"Файл «{filename}» получил. Можешь спросить, что с ним сделать.")
-    return jsonify({"ok": True, "filename": filename, "text": extracted[:4000]})
+    return jsonify({"ok": True, "filename": filename, "text": extracted[:4000], "image_url": None})
 
 
 @app.route("/update-account", methods=["POST"])
@@ -528,10 +629,10 @@ def save_profile():
         return jsonify({"ok": False}), 401
     data = request.get_json(silent=True) or {}
     conn = db()
-    conn.execute("UPDATE users SET name=?, about=?, tone=?, mode=?, photo_url=COALESCE(?, photo_url) WHERE id=?",
+    conn.execute("UPDATE users SET name=?, about=?, tone=?, mode=?, photo_url=COALESCE(?, photo_url), voice_gender=? WHERE id=?",
                  (str(data.get("name","")).strip(), str(data.get("about","")).strip(),
                   str(data.get("tone","normal")).strip() or "normal",
-                  str(data.get("mode","normal")).strip() or "normal", str(data.get("photo_url","")).strip() or None, uid()))
+                  str(data.get("mode","normal")).strip() or "normal", str(data.get("photo_url","")).strip() or None, str(data.get("voice_gender","male")).strip() or "male", uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})

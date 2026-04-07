@@ -1543,3 +1543,185 @@ body.theme-light .top-brand-ai{
     font-size:29px !important;
   }
 }
+
+
+/* ===== mega polish ===== */
+.top-brand-main{
+  font-weight:800;
+}
+.top-brand-ai{
+  font-weight:900;
+}
+.beta-badge{
+  background:linear-gradient(135deg, rgba(255,255,255,.14), rgba(123,146,255,.12));
+  border-color:rgba(255,255,255,.12);
+  box-shadow:0 10px 20px rgba(52,68,128,.16);
+}
+
+.status-card, .top-status{
+  min-height:unset;
+}
+.status-card .status-meta{ display:none !important; }
+.status-card .status-line{
+  justify-content:center;
+}
+
+.logo-fallback svg{
+  width:40px;
+  height:40px;
+}
+
+.pretty-check{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:12px;
+  user-select:none;
+}
+.pretty-check input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+.pretty-check .check-ui{
+  width:20px;
+  height:20px;
+  border-radius:7px;
+  border:1px solid rgba(255,255,255,.16);
+  background:linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.04));
+  box-shadow:0 6px 12px rgba(0,0,0,.14);
+  position:relative;
+  flex:0 0 20px;
+}
+.pretty-check input:checked + .check-ui::after{
+  content:"";
+  position:absolute;
+  left:6px;
+  top:2px;
+  width:5px;
+  height:10px;
+  border-right:2px solid #eef4ff;
+  border-bottom:2px solid #eef4ff;
+  transform:rotate(45deg);
+}
+body.theme-light .pretty-check .check-ui{
+  border-color:rgba(39,62,113,.16);
+  background:linear-gradient(135deg, rgba(18,36,67,.06), rgba(18,36,67,.03));
+}
+body.theme-light .pretty-check input:checked + .check-ui::after{
+  border-color:#17305f;
+}
+
+.file-picker-ui{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:18px;
+  cursor:pointer;
+  border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+}
+.file-picker-main{
+  font-weight:700;
+}
+.file-picker-meta{
+  color:var(--muted);
+  font-size:13px;
+  text-align:right;
+}
+.mini-save-photo-btn{
+  margin-top:10px;
+  border:none;
+  border-radius:12px;
+  padding:9px 12px;
+  cursor:pointer;
+  background:linear-gradient(135deg, rgba(255,255,255,.12), rgba(123,146,255,.16));
+  color:var(--text);
+  border:1px solid rgba(255,255,255,.12);
+}
+.profile-hints{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:-4px 0 4px;
+}
+.mini-mode-pill{
+  padding:8px 12px;
+  border-radius:999px;
+  background:linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.10);
+  color:var(--muted);
+  font-size:12px;
+}
+.profile-footer-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.danger-btn{
+  border:none;
+  border-radius:16px;
+  padding:12px 16px;
+  cursor:pointer;
+  font:inherit;
+  background:linear-gradient(135deg, rgba(255,106,133,.18), rgba(255,106,133,.10));
+  color:#ff9aad;
+  border:1px solid rgba(255,106,133,.20);
+}
+.ai-gradient-text{
+  background:linear-gradient(135deg,#eff5ff 0%,#c8d5ff 40%,#8fa1ff 78%,#7384ff 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.composer-mode-hint{
+  margin-top:6px;
+  color:var(--muted);
+  font-size:12px;
+  min-height:18px;
+  padding-left:4px;
+}
+body.theme-light .file-picker-ui{
+  border-color:rgba(39,62,113,.14);
+  background:linear-gradient(135deg, rgba(18,36,67,.05), rgba(18,36,67,.02));
+}
+body.theme-light .mini-mode-pill{
+  border-color:rgba(39,62,113,.12);
+  background:linear-gradient(135deg, rgba(18,36,67,.05), rgba(18,36,67,.02));
+}
+body.theme-light .danger-btn{
+  color:#cf4565;
+  border-color:rgba(207,69,101,.20);
+  background:linear-gradient(135deg, rgba(207,69,101,.10), rgba(207,69,101,.05));
+}
+
+/* better scrollbars */
+*{
+  scrollbar-width:thin;
+  scrollbar-color: rgba(97,124,255,.55) transparent;
+}
+*::-webkit-scrollbar{
+  width:10px;
+  height:10px;
+}
+*::-webkit-scrollbar-track{
+  background:transparent;
+}
+*::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg, rgba(108,126,255,.55), rgba(87,104,212,.55));
+  border-radius:999px;
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+
+@media (max-width:980px){
+  .status-card{
+    padding:12px !important;
+  }
+  .composer{
+    transform:translateZ(0);
+  }
+}

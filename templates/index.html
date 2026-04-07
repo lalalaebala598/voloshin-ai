@@ -69,10 +69,19 @@ window.TRANSLATIONS = {{ translations|tojson }};
       <div class="brand profile-entry" id="openProfileBtn">
         <div class="profile-avatar-shell">
           <img id="profileAvatarImg" class="hidden" alt="avatar">
-          <div id="profileAvatarFallback" class="profile-mark">
+          <div id="profileAvatarFallback" class="profile-mark logo-fallback">
             <svg viewBox="0 0 64 64" aria-hidden="true">
-              <circle cx="32" cy="22" r="10"></circle>
-              <path d="M16 50c3-9 12-14 16-14s13 5 16 14"></path>
+              <defs>
+                <linearGradient id="profileVGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#eef4ff"/>
+                  <stop offset="100%" stop-color="#7b92ff"/>
+                </linearGradient>
+              </defs>
+              <circle cx="32" cy="32" r="21" fill="none" stroke="url(#profileVGrad)" stroke-width="2.1" opacity="0.85"></circle>
+              <path d="M19 19L32 45L45 19" fill="none" stroke="url(#profileVGrad)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+              <circle cx="19.4" cy="19.4" r="2.1" fill="url(#profileVGrad)"></circle>
+              <circle cx="44.6" cy="19.4" r="2.1" fill="url(#profileVGrad)"></circle>
+              <circle cx="32" cy="44.8" r="2.1" fill="url(#profileVGrad)"></circle>
             </svg>
           </div>
         </div>
@@ -112,7 +121,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">{{ translations.local_mode }}</span>
           </div>
-          <div class="status-meta" id="statusMeta">{{ translations.no_key }}</div>
+          <div class="status-meta hidden" id="statusMeta"></div>
         </div>
       </div>
     </div>
@@ -136,7 +145,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
         <div class="top-status" id="mobileTopStatus"><span class="status-dot" id="mobileTopStatusDot"></span><span class="mobile-top-status-text">AI online</span></div>
         <div class="top-status">
           <span class="status-dot" id="topStatusDot"></span>
-          <span id="modeLabel">local</span>
+          <span id="modeLabel">AI online</span>
         </div>
       </div>
     </div>
@@ -190,6 +199,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
     </div>
     <button class="send-btn" onclick="sendMessage()">➜</button>
     </div>
+    <div class="composer-mode-hint" id="composerModeHint"></div>
   </main>
 </div>
 
@@ -343,7 +353,11 @@ window.TRANSLATIONS = {{ translations|tojson }};
     </div>
     <div class="field">
       <label data-i18n="about">{{ translations.about }}</label>
-      <input id="profileAbout" type="text">
+      <input id="profileAbout" type="text" placeholder="Например: Меня зовут Никита, мне 19 лет, люблю жёсткий стиль общения.">
+    </div>
+    <div class="profile-hints">
+      <div class="mini-mode-pill" id="activeTonePill">Стиль: нормальный</div>
+      <div class="mini-mode-pill" id="activeModePill">Режим: обычный</div>
     </div>
     <div class="field">
       <label data-i18n="style">{{ translations.style }}</label>
@@ -385,13 +399,28 @@ window.TRANSLATIONS = {{ translations|tojson }};
         </div>
       </div>
     </div>
+    <div class="field">
+      <label>Голос AI</label>
+      <div class="select-pill-wrap custom-dropdown-wrap">
+        <select id="voiceGenderSelect" class="hidden-real-select">
+          <option value="male">Мужской</option>
+          <option value="female">Женский</option>
+        </select>
+        <button class="model-display-btn custom-display-btn" type="button">
+          <span class="custom-display-value"></span>
+          <span class="model-caret"></span>
+        </button>
+        <div class="model-dropdown hidden">
+          <button class="model-option" data-value="male" type="button">Мужской</button>
+          <button class="model-option" data-value="female" type="button">Женский</button>
+        </div>
+      </div>
+    </div>
     <div class="settings-divider">
       <div class="settings-divider-title">Данные профиля</div>
       <div class="settings-divider-subtitle">Имя, описание и стиль ответов.</div>
     </div>
-    <div class="modal-actions profile-action-row">
-      <button class="primary-btn" id="saveProfileBtn" data-i18n="save_profile">{{ translations.save_profile }}</button>
-    </div>
+
 
     <div class="settings-divider">
       <div class="settings-divider-title">Аккаунт и безопасность</div>
@@ -412,16 +441,50 @@ window.TRANSLATIONS = {{ translations|tojson }};
     </div>
     <div class="field">
       <label>Фото профиля</label>
-      <input id="profilePhotoFile" type="file" accept="image/*">
+      <label class="file-picker-ui" for="profilePhotoFile">
+        <span class="file-picker-main">Выбрать фото</span>
+        <span class="file-picker-meta" id="profilePhotoName">Файл не выбран</span>
+      </label>
+      <input id="profilePhotoFile" type="file" accept="image/*" hidden>
       <input id="profilePhotoUrl" type="hidden">
-      <div class="modal-actions photo-save-row">
-        <button class="soft-btn" id="savePhotoBtn" type="button">Сохранить фото</button>
+      <button class="mini-save-photo-btn" id="savePhotoBtn" type="button">Сохранить</button>
+    </div>
+    <div class="modal-actions profile-footer-actions">
+      <button class="secondary-btn" id="closeProfileBtn2" data-i18n="close">{{ translations.close }}</button>
+      <button class="soft-btn" id="openAccountModalBtn">Аккаунт и безопасность</button>
+      <button class="primary-btn" id="saveProfileBtn" data-i18n="save_profile">{{ translations.save_profile }}</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal hidden" id="accountModal">
+  <div class="modal-card glass-strong">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Аккаунт и безопасность</div>
+        <div class="modal-subtitle">Почта, пароль и выход из аккаунта.</div>
       </div>
+      <button class="icon-btn" id="closeAccountModalBtn">×</button>
+    </div>
+    <div class="field">
+      <label>Почта аккаунта</label>
+      <input id="accountEmail" type="email" placeholder="email@example.com">
+    </div>
+    <div class="field custom-check-field">
+      <label>Текущий пароль</label>
+      <input id="currentAccountPassword" type="password" placeholder="Нужен только если меняешь пароль">
+      <label class="check-row pretty-check"><input id="toggleCurrentAccountPassword" type="checkbox"><span class="check-ui"></span><span>Показать пароль</span></label>
+    </div>
+    <div class="field custom-check-field">
+      <label>Новый пароль</label>
+      <input id="accountPassword" type="password" placeholder="Оставь пустым, если менять не нужно">
+      <label class="check-row pretty-check"><input id="toggleAccountPassword" type="checkbox"><span class="check-ui"></span><span>Показать пароль</span></label>
     </div>
     <div class="modal-actions">
-      <button class="secondary-btn" id="closeProfileBtn2" data-i18n="close">{{ translations.close }}</button>
-      <button class="soft-btn" id="logoutFromProfileBtn">Выйти</button>
-      <button class="soft-btn" id="saveAccountBtn">Сохранить аккаунт и безопасность</button>
+      <button class="secondary-btn" id="closeAccountModalBtn2">Закрыть</button>
+      <button class="soft-btn" id="saveAccountBtn">Сохранить</button>
+      <button class="danger-btn" id="logoutFromProfileBtn">Выйти</button>
     </div>
   </div>
 </div>

@@ -21,12 +21,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const registerModal = document.getElementById("registerModal");
   const aiModal = document.getElementById("aiModal");
   const profileModal = document.getElementById("profileModal");
+  const accountModal = document.getElementById("accountModal");
   const trainModal = document.getElementById("trainModal");
   const imageModal = document.getElementById("imageModal");
   const welcomeGate = document.getElementById("welcomeGate");
 
   const profileName = document.getElementById("profileName");
   const profileAbout = document.getElementById("profileAbout");
+  const voiceGenderSelect = document.getElementById("voiceGenderSelect");
+  const activeTonePill = document.getElementById("activeTonePill");
+  const activeModePill = document.getElementById("activeModePill");
+  const composerModeHint = document.getElementById("composerModeHint");
+  const profilePhotoName = document.getElementById("profilePhotoName");
   const toneSelect = document.getElementById("toneSelect");
   const modeSelect = document.getElementById("modeSelect");
   const languageSelect = document.getElementById("languageSelect");
@@ -50,6 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const registerPassword = document.getElementById("registerPassword");
   const toggleRegisterPassword = document.getElementById("toggleRegisterPassword");
   const toggleAccountPassword = document.getElementById("toggleAccountPassword");
+  const toggleCurrentAccountPassword = document.getElementById("toggleCurrentAccountPassword");
   const authLoggedIn = document.getElementById("authLoggedIn");
   const authLoggedOut = document.getElementById("authLoggedOut");
   const authStatusText = document.getElementById("authStatusText");
@@ -268,6 +275,51 @@ document.addEventListener("DOMContentLoaded", () => {
     window.visualViewport.addEventListener("scroll", update);
   }
 
+
+  function toneLabel(value) {
+    return {
+      normal: "нормальный",
+      rude: "пожёстче",
+      polite: "вежливый"
+    }[value] || "нормальный";
+  }
+
+  function modeLabelText(value) {
+    return {
+      normal: "обычный",
+      teacher: "рассуждающий",
+      coder: "кодер",
+      brief: "коротко"
+    }[value] || "обычный";
+  }
+
+  function updateModeUi() {
+    if (activeTonePill) activeTonePill.textContent = `Стиль: ${toneLabel(toneSelect?.value || body.dataset.profileTone || "normal")}`;
+    if (activeModePill) activeModePill.textContent = `Режим: ${modeLabelText(modeSelect?.value || body.dataset.profileMode || "normal")}`;
+    if (composerModeHint) {
+      const mode = modeSelect?.value || body.dataset.profileMode || "normal";
+      const tone = toneSelect?.value || body.dataset.profileTone || "normal";
+      const modeHint = {
+        normal: "Обычный формат ответа",
+        teacher: "Сейчас ответы будут более рассуждающими",
+        coder: "Сейчас ответы будут с упором на код и структуру",
+        brief: "Сейчас ответы будут короткими"
+      }[mode] || "Обычный формат ответа";
+      const toneHint = tone === "normal" ? "" : ` · стиль: ${toneLabel(tone)}`;
+      composerModeHint.textContent = modeHint + toneHint;
+    }
+    if (input) {
+      const mode = modeSelect?.value || body.dataset.profileMode || "normal";
+      input.placeholder = {
+        normal: "Напиши сообщение...",
+        teacher: "Напиши сообщение... Сейчас ответ будет более рассуждающим",
+        coder: "Напиши сообщение... Можно с кодом или задачей",
+        brief: "Напиши сообщение... Ответ будет короче"
+      }[mode] || "Напиши сообщение...";
+    }
+  }
+
+
   function getConfig() {
     return {
       apiKey: localStorage.getItem("voloshin_groq_api_key") || "",
@@ -282,17 +334,14 @@ document.addEventListener("DOMContentLoaded", () => {
     statusDot?.classList.toggle("connected", connected);
     topStatusDot?.classList.toggle("connected", connected);
     mobileTopStatusDot?.classList.toggle("connected", connected);
-    if (serverKeyEnabled) {
-      statusText.textContent = "Серверный Groq включён";
-      statusMeta.textContent = `Модель сервера: ${body.dataset.serverModel || "llama-3.3-70b-versatile"}`;
-    } else if (cfg.apiKey) {
-      statusText.textContent = "Подключён пользовательский Groq";
-      statusMeta.textContent = `Модель: ${cfg.model || "llama-3.3-70b-versatile"}`;
+    if (connected) {
+      statusText.textContent = "AI online";
+      statusMeta.textContent = "";
     } else {
-      statusText.textContent = t.local_mode || "Локальный режим";
-      statusMeta.textContent = t.no_key || "Без подключённого ключа";
+      statusText.textContent = "Локальный режим";
+      statusMeta.textContent = "";
     }
-    modeLabel.textContent = mode || (connected ? `groq:${cfg.model || body.dataset.serverModel || "default"}` : "local");
+    modeLabel.textContent = connected ? "AI online" : "AI local";
     infoBanner.style.display = connected ? "none" : "flex";
   }
 
@@ -573,6 +622,8 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshChats();
       return;
     }
+    messages.innerHTML = "";
+    addMessage("assistant", "Создаю новый чат...", true);
     const res = await fetch("/new-chat", {method:"POST"});
     const data = await res.json();
     if (!data.ok) return;
@@ -666,9 +717,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const form = new FormData();
     form.append("file", file);
-    await fetch("/upload-file", {method:"POST", body: form});
+    showToast(`Загружаю: ${file.name}`);
+    const res = await fetch("/upload-file", {method:"POST", body: form});
+    const data = await res.json();
+    if (data.image_url) {
+      addImageMessage(data.image_url, data.filename || "Изображение");
+    }
     await refreshCurrentChat();
     attachMenu.classList.add("hidden");
+    showToast(data.image_url ? "Изображение добавлено." : "Файл добавлен.");
   }
 
   function fileToDataURL(file) {
@@ -695,6 +752,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentAccountPassword.value = "";
     accountPassword.value = "";
     profilePhotoUrl.value = body.dataset.profilePhoto || "";
+    if (voiceGenderSelect) voiceGenderSelect.value = body.dataset.voiceGender || "male";
     document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
     const openModal = () => profileModal.classList.remove("hidden");
     if (window.innerWidth <= 980) setTimeout(openModal, 120);
@@ -707,6 +765,7 @@ document.addEventListener("DOMContentLoaded", () => {
       about: profileAbout.value.trim(),
       tone: toneSelect.value,
       mode: modeSelect.value,
+      voice_gender: voiceGenderSelect ? voiceGenderSelect.value : (body.dataset.voiceGender || "male"),
       photo_url: profilePhotoUrl.value.trim()
     };
     await fetch("/save-profile", {
@@ -719,7 +778,10 @@ document.addEventListener("DOMContentLoaded", () => {
     body.dataset.profileTone = payload.tone;
     body.dataset.profileMode = payload.mode;
     body.dataset.profilePhoto = payload.photo_url;
+    body.dataset.voiceGender = payload.voice_gender;
     syncAvatar();
+    updateModeUi();
+    showToast("Профиль обновлён.");
     profileModal.classList.add("hidden");
   }
 
@@ -918,6 +980,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     $("newChatBtn").onclick = () => { closeSidebarMobile(); createNewChat(); };
     $("openProfileBtn").onclick = loadProfileIntoModal;
+    $("openAccountModalBtn") && ($("openAccountModalBtn").onclick = () => { profileModal.classList.add("hidden"); accountModal.classList.remove("hidden"); });
     $("openTrainBtn").onclick = () => { closeSidebarMobile(); trainModal.classList.remove("hidden"); };
     $("openImageBtn").onclick = () => { closeSidebarMobile(); openImageModal(); };
     $("openImageBtnMenu").onclick = () => { closeSidebarMobile(); openImageModal(); };
@@ -929,6 +992,8 @@ document.addEventListener("DOMContentLoaded", () => {
     $("closeAIBtn").onclick = () => aiModal.classList.add("hidden");
     $("closeProfileBtn").onclick = () => profileModal.classList.add("hidden");
     $("closeProfileBtn2").onclick = () => profileModal.classList.add("hidden");
+    $("closeAccountModalBtn") && ($("closeAccountModalBtn").onclick = () => accountModal.classList.add("hidden"));
+    $("closeAccountModalBtn2") && ($("closeAccountModalBtn2").onclick = () => accountModal.classList.add("hidden"));
     $("closeTrainBtn").onclick = () => trainModal.classList.add("hidden");
     $("closeTrainBtn2").onclick = () => trainModal.classList.add("hidden");
     $("closeImageBtn").onclick = () => imageModal.classList.add("hidden");
@@ -937,7 +1002,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("saveProfileBtn").onclick = saveProfile;
     $("saveAccountBtn").onclick = saveAccount;
     $("savePhotoBtn").onclick = savePhotoOnly;
-    $("logoutFromProfileBtn").onclick = logoutUser;
+    $("logoutFromProfileBtn").onclick = () => { if (confirm("Точно хочешь выйти из аккаунта?")) logoutUser(); };
     $("saveTrainBtn").onclick = saveTrain;
     $("saveSettingsBtn").onclick = saveSettings;
     $("generateImageBtn").onclick = generateImage;
@@ -953,13 +1018,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     $("logoutBtn") && ($("logoutBtn").onclick = logoutUser);
     guestBtn.onclick = startGuestMode;
+    toneSelect && (toneSelect.onchange = () => updateModeUi());
+    modeSelect && (modeSelect.onchange = () => updateModeUi());
+    voiceGenderSelect && (voiceGenderSelect.onchange = () => updateModeUi());
     $("welcomeLoginBtn").onclick = () => { welcomeGate.classList.remove("show"); openLoginModal(); };
     $("welcomeRegisterBtn").onclick = () => { welcomeGate.classList.remove("show"); openRegisterModal(); };
     $("welcomeGuestBtn").onclick = () => { welcomeGate.classList.remove("show"); startGuestMode(); };
     $("openRegisterModalBtn").onclick = () => { authModal.classList.add("hidden"); openRegisterModal(); };
     $("switchToLoginBtn").onclick = () => { registerModal.classList.add("hidden"); openLoginModal(); };
 
-    [settingsModal, authModal, registerModal, aiModal, profileModal, trainModal, imageModal].forEach(m => m && closeModalOnBackdrop(m));
+    [settingsModal, authModal, registerModal, aiModal, profileModal, accountModal, trainModal, imageModal].forEach(m => m && closeModalOnBackdrop(m));
 
     attachBtn.onclick = (e) => {
       e.stopPropagation();
@@ -979,6 +1047,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     photoInput.onchange = () => uploadFile(photoInput.files[0]);
+    profilePhotoFile && (profilePhotoFile.onchange = () => { if (profilePhotoName) profilePhotoName.textContent = profilePhotoFile.files?.[0]?.name || "Файл не выбран"; });
     cameraInput && (cameraInput.onchange = () => uploadFile(cameraInput.files[0]));
     fileInput.onchange = () => uploadFile(fileInput.files[0]);
 
