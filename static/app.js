@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const t = window.TRANSLATIONS || {};
   const appShell = document.querySelector(".app-shell");
   const sidebar = document.getElementById("sidebar");
+  const mobileSidebarCloseBtn = document.getElementById("mobileSidebarCloseBtn");
   const messages = document.getElementById("messages");
   const input = document.getElementById("input");
   const chatList = document.getElementById("chatList");
@@ -56,6 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const statusDot = document.getElementById("statusDot");
   const topStatusDot = document.getElementById("topStatusDot");
+  const mobileTopStatusDot = document.getElementById("mobileTopStatusDot");
   const statusText = document.getElementById("statusText");
   const statusMeta = document.getElementById("statusMeta");
   const modeLabel = document.getElementById("modeLabel");
@@ -130,6 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const connected = !!(serverKeyEnabled || cfg.apiKey);
     statusDot?.classList.toggle("connected", connected);
     topStatusDot?.classList.toggle("connected", connected);
+    mobileTopStatusDot?.classList.toggle("connected", connected);
     if (serverKeyEnabled) {
       statusText.textContent = "Серверный Groq включён";
       statusMeta.textContent = `Модель сервера: ${body.dataset.serverModel || "llama-3.3-70b-versatile"}`;
@@ -169,6 +172,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const collapsed = window.innerWidth <= 980 ? !sidebar.classList.contains("open") : appShell.classList.contains("sidebar-collapsed");
     renderChevron(collapsed);
   }
+  function closeSidebarMobile() {
+    if (window.innerWidth <= 980) sidebar.classList.remove("open");
+    setCollapseArrow();
+  }
+
   function toggleSidebar() {
     if (window.innerWidth <= 980) sidebar.classList.toggle("open");
     else appShell.classList.toggle("sidebar-collapsed");
@@ -741,6 +749,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function initEvents() {
     $("brandCollapseBtn").onclick = toggleSidebar;
+    mobileSidebarCloseBtn && (mobileSidebarCloseBtn.onclick = closeSidebarMobile);
     $("openSettingsBtn").onclick = () => {
       languageSelect.value = body.dataset.language || "ru";
       themeSelect.value = getPreferredTheme();
@@ -805,6 +814,15 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     document.addEventListener("click", (e) => {
       if (!attachBtn.contains(e.target) && !attachMenu.contains(e.target)) attachMenu.classList.add("hidden");
+    });
+
+    document.addEventListener("pointerdown", (e) => {
+      if (window.innerWidth > 980) return;
+      if (!sidebar.classList.contains("open")) return;
+      const brandBtn = $("brandCollapseBtn");
+      const insideSidebar = sidebar.contains(e.target);
+      const onToggle = brandBtn && brandBtn.contains(e.target);
+      if (!insideSidebar && !onToggle) closeSidebarMobile();
     });
 
     photoInput.onchange = () => uploadFile(photoInput.files[0]);

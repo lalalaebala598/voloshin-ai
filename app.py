@@ -648,7 +648,7 @@ def chats():
         return jsonify({"current_chat_id": None, "items": []})
     return jsonify({"current_chat_id": active_chat_id(), "items": [{"id":r["id"], "title":r["title"]} for r in chat_list()]})
 
-init_db()
-
 if __name__ == "__main__":
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    init_db()
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
