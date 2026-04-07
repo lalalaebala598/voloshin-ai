@@ -26,24 +26,22 @@ window.TRANSLATIONS = {{ translations|tojson }};
     <div class="welcome-avatar welcome-logo">
       <svg viewBox="0 0 64 64" aria-hidden="true">
         <defs>
-          <linearGradient id="welcomeVOuter" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#e5efff"/>
-            <stop offset="55%" stop-color="#8ca0ff"/>
-            <stop offset="100%" stop-color="#6d79ff"/>
-          </linearGradient>
-          <linearGradient id="welcomeVInner" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="100%" stop-color="#b9ceff"/>
+          <linearGradient id="welcomeOuterV2" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f4f8ff"/>
+            <stop offset="42%" stop-color="#c8d7ff"/>
+            <stop offset="70%" stop-color="#96a5ff"/>
+            <stop offset="100%" stop-color="#7380ff"/>
           </linearGradient>
         </defs>
-        <circle cx="32" cy="32" r="23" fill="rgba(255,255,255,0.03)" stroke="url(#welcomeVOuter)" stroke-width="2.3" opacity="0.95"></circle>
-        <path d="M18.5 18.5L31.8 45.8L45.5 18.5" fill="none" stroke="url(#welcomeVOuter)" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round"></path>
-        <path d="M24 19.5L31.9 35.8L40 19.5" fill="none" stroke="url(#welcomeVInner)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"></path>
-        <circle cx="18.7" cy="18.7" r="2.2" fill="url(#welcomeVOuter)"></circle>
-        <circle cx="45.3" cy="18.7" r="2.2" fill="url(#welcomeVOuter)"></circle>
-        <circle cx="31.9" cy="45.4" r="2.2" fill="url(#welcomeVOuter)"></circle>
-        <path d="M22.2 12.8H41.8" stroke="url(#welcomeVOuter)" stroke-width="1.2" stroke-linecap="round" opacity="0.55"></path>
-        <path d="M50.6 24.4L54 32L50.6 39.6" stroke="url(#welcomeVOuter)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"></path>
+        <circle cx="32" cy="32" r="24.5" fill="none" stroke="url(#welcomeOuterV2)" stroke-width="2.5" opacity="0.95"></circle>
+        <circle cx="32" cy="32" r="19.6" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1.1"></circle>
+        <path d="M17.5 18.5L31.8 46.2L46.2 18.5" fill="none" stroke="url(#welcomeOuterV2)" stroke-width="6.1" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M22.8 19.8L31.8 37.7L41 19.8" fill="none" stroke="rgba(255,255,255,0.88)" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" opacity="0.92"></path>
+        <circle cx="17.8" cy="18.8" r="2.25" fill="url(#welcomeOuterV2)"></circle>
+        <circle cx="46.0" cy="18.8" r="2.25" fill="url(#welcomeOuterV2)"></circle>
+        <circle cx="31.8" cy="46.0" r="2.25" fill="url(#welcomeOuterV2)"></circle>
+        <path d="M12.7 31.7H8.8" stroke="url(#welcomeOuterV2)" stroke-width="1.5" stroke-linecap="round" opacity="0.7"></path>
+        <path d="M55.2 31.7h-3.9" stroke="url(#welcomeOuterV2)" stroke-width="1.5" stroke-linecap="round" opacity="0.7"></path>
       </svg>
     </div>
     <div class="welcome-title"><span class="welcome-brand-main">Voloshin</span> <span class="welcome-brand-ai">AI</span></div>
@@ -87,7 +85,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
         </div>
         <div class="brand-copy">
           <div class="brand-subtitle solo-subtitle">{{ translations.profile }}</div>
-          <div class="profile-mini-text">edit profile</div>
+          <div class="profile-mini-text">настройки профиля</div>
         </div>
       </div>
 
@@ -119,7 +117,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
         <div class="status-card">
           <div class="status-line">
             <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">Серверное ядро</span>
+            <span id="statusText">Сервер подключён</span>
           </div>
           <div class="status-meta hidden" id="statusMeta"></div>
         </div>
@@ -145,7 +143,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
         <div class="top-status" id="mobileTopStatus"><span class="status-dot" id="mobileTopStatusDot"></span><span class="mobile-top-status-text">AI online</span></div>
         <div class="top-status">
           <span class="status-dot" id="topStatusDot"></span>
-          <span id="modeLabel">AI online</span>
+          <span id="modeLabel">Онлайн</span>
         </div>
       </div>
     </div>
@@ -288,7 +286,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
       <div class="field">
         <label data-i18n="password">{{ translations.password }}</label>
         <input id="authPassword" type="password" placeholder="••••••••">
-        <label class="check-row"><input id="toggleAuthPassword" type="checkbox"> <span>Показать пароль</span></label>
+        <label class="check-row pretty-check"><input id="toggleAuthPassword" type="checkbox"><span class="check-ui"></span><span>Показать пароль</span></label>
       </div>
       <div class="modal-actions" id="loginActions">
         <button class="primary-btn" id="loginBtn" data-i18n="login">{{ translations.login }}</button>
@@ -371,7 +369,8 @@ window.TRANSLATIONS = {{ translations|tojson }};
       <label data-i18n="about">{{ translations.about }}</label>
       <input id="profileAbout" type="text" placeholder="Например: Меня зовут Артём, мне 20 лет, люблю смотреть спорт.">
     </div>
-    
+      <div class="mini-mode-pill" id="activeModePill">Режим: обычный</div>
+    </div>
     <div class="field">
       <label data-i18n="style">{{ translations.style }}</label>
       <div class="select-pill-wrap custom-dropdown-wrap">
@@ -411,26 +410,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
           <button class="model-option" data-value="brief" type="button">{{ translations.brief }}</button>
         </div>
       </div>
-    </div></div>
     </div>
-    <div class="settings-divider">
-      <div class="settings-divider-title">Данные профиля</div>
-      <div class="settings-divider-subtitle">Имя, описание и стиль ответов.</div>
-    </div>
-
-
-    <div class="settings-divider">
-      <div class="settings-divider-title">Аккаунт и безопасность</div>
-      <div class="settings-divider-subtitle">Почта, пароль и фото профиля.</div>
-    </div>
-    <div class="field">
-      <label>Текущий пароль</label>
-      <input id="currentAccountPassword" type="password" placeholder="Нужен только если меняешь пароль">
-    </div>
-    <div class="field">
-      <label>Новый пароль</label>
-      <input id="accountPassword" type="password" placeholder="Оставь пустым, если менять не нужно">
-      <label class="check-row"><input id="toggleAccountPassword" type="checkbox"> <span>Показать пароль</span></label>
     </div>
     <div class="field">
       <label>Фото профиля</label>
@@ -442,6 +422,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
       <input id="profilePhotoUrl" type="hidden">
       <button class="mini-save-photo-btn" id="savePhotoBtn" type="button">Сохранить</button>
     </div>
+              
     <div class="modal-actions profile-footer-actions">
       <button class="secondary-btn" id="closeProfileBtn2" data-i18n="close">{{ translations.close }}</button>
       <button class="soft-btn" id="openAccountModalBtn">Аккаунт и безопасность</button>
@@ -464,6 +445,16 @@ window.TRANSLATIONS = {{ translations|tojson }};
       <label>Почта аккаунта</label>
       <input id="accountEmail" type="email" placeholder="email@example.com">
     </div>
+    <div class="field custom-check-field">
+      <label>Текущий пароль</label>
+      <input id="currentAccountPassword" type="password" placeholder="Нужен только если меняешь пароль">
+      <label class="check-row pretty-check"><input id="toggleCurrentAccountPassword" type="checkbox"><span class="check-ui"></span><span>Показать пароль</span></label>
+    </div>
+    <div class="field custom-check-field">
+      <label>Новый пароль</label>
+      <input id="accountPassword" type="password" placeholder="Оставь пустым, если менять не нужно">
+      <label class="check-row pretty-check"><input id="toggleAccountPassword" type="checkbox"><span class="check-ui"></span><span>Показать пароль</span></label>
+    </div>
     <div class="modal-actions">
       <button class="secondary-btn" id="closeAccountModalBtn2">Закрыть</button>
       <button class="soft-btn" id="saveAccountBtn">Сохранить</button>
@@ -472,15 +463,14 @@ window.TRANSLATIONS = {{ translations|tojson }};
   </div>
 </div>
 
-
-<div class="modal hidden" id="confirmLogoutModal">
-  <div class="modal-card glass-strong small-confirm">
+<div class="modal hidden" id="logoutConfirmModal">
+  <div class="modal-card glass-strong small-confirm-card">
     <div class="modal-header">
       <div>
         <div class="modal-title">Выйти из аккаунта?</div>
-        <div class="modal-subtitle">Сессия завершится на этом устройстве.</div>
+        <div class="modal-subtitle">Подтверди, если точно хочешь выйти.</div>
       </div>
-      <button class="icon-btn" id="closeConfirmLogoutBtn">×</button>
+      <button class="icon-btn" id="closeLogoutConfirmBtn">×</button>
     </div>
     <div class="modal-actions">
       <button class="secondary-btn" id="cancelLogoutBtn">Отмена</button>
@@ -573,7 +563,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
     <div class="field">
       <label>Пароль</label>
       <input id="registerPassword" type="password" placeholder="••••••••">
-      <label class="check-row"><input id="toggleRegisterPassword" type="checkbox"> <span>Показать пароль</span></label>
+      <label class="check-row pretty-check"><input id="toggleRegisterPassword" type="checkbox"><span class="check-ui"></span><span>Показать пароль</span></label>
     </div>
 
     <div class="modal-actions">

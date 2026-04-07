@@ -22,21 +22,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const aiModal = document.getElementById("aiModal");
   const profileModal = document.getElementById("profileModal");
   const accountModal = document.getElementById("accountModal");
-  const confirmLogoutModal = document.getElementById("confirmLogoutModal");
   const trainModal = document.getElementById("trainModal");
   const imageModal = document.getElementById("imageModal");
+  const logoutConfirmModal = document.getElementById("logoutConfirmModal");
   const welcomeGate = document.getElementById("welcomeGate");
 
   const profileName = document.getElementById("profileName");
   const profileAbout = document.getElementById("profileAbout");
-  const settingsVoiceGenderSelect = document.getElementById("settingsVoiceGenderSelect");
   const voiceGenderSelect = document.getElementById("voiceGenderSelect");
+  const activeTonePill = document.getElementById("activeTonePill");
+  const activeModePill = document.getElementById("activeModePill");
   const composerModeHint = document.getElementById("composerModeHint");
   const profilePhotoName = document.getElementById("profilePhotoName");
   const toneSelect = document.getElementById("toneSelect");
   const modeSelect = document.getElementById("modeSelect");
   const languageSelect = document.getElementById("languageSelect");
   const themeSelect = document.getElementById("themeSelect");
+  const settingsVoiceGenderSelect = document.getElementById("settingsVoiceGenderSelect");
   const accountEmail = document.getElementById("accountEmail");
   const currentAccountPassword = document.getElementById("currentAccountPassword");
   const accountPassword = document.getElementById("accountPassword");
@@ -216,15 +218,15 @@ document.addEventListener("DOMContentLoaded", () => {
   function getPreferredVoice() {
     const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
     if (!voices || !voices.length) return null;
-    const prefer = settingsVoiceGenderSelect?.value || body.dataset.voiceGender || "male";
+    const prefer = localStorage.getItem("voloshin_voice_gender") || body.dataset.voiceGender || "male";
     if (prefer === "female") {
-      return voices.find(v => /ru/i.test(v.lang) && /(female|anna|alena|alya|elena|milena|victoria|zira|google)/i.test(v.name))
+      return voices.find(v => /ru/i.test(v.lang) && /(female|anna|alena|alya|elena|google|milena|victoria|zira)/i.test(v.name))
         || voices.find(v => /ru/i.test(v.lang))
         || voices.find(v => /en/i.test(v.lang) && /(female|samantha|victoria|zira|aria)/i.test(v.name))
         || voices[0]
         || null;
     }
-    return voices.find(v => /ru/i.test(v.lang) && /(male|aleksei|yuri|pavel|nikolai|dmitri|maxim|alexander|google)/i.test(v.name))
+    return voices.find(v => /ru/i.test(v.lang) && /(male|aleksei|yuri|pavel|nikolai|google|russian|dmitri|maxim|alexander)/i.test(v.name))
       || voices.find(v => /ru/i.test(v.lang))
       || voices.find(v => /en/i.test(v.lang) && /(male|daniel|alex|tom|fred)/i.test(v.name))
       || voices[0]
@@ -302,6 +304,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateModeUi() {
+    if (activeTonePill) activeTonePill.textContent = `Стиль: ${toneLabel(toneSelect?.value || body.dataset.profileTone || "normal")}`;
+    if (activeModePill) activeModePill.textContent = `Режим: ${modeLabelText(modeSelect?.value || body.dataset.profileMode || "normal")}`;
     if (composerModeHint) {
       const mode = modeSelect?.value || body.dataset.profileMode || "normal";
       const tone = toneSelect?.value || body.dataset.profileTone || "normal";
@@ -309,7 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
         normal: "Обычный формат ответа",
         teacher: "Сейчас ответы будут более рассуждающими",
         coder: "Сейчас ответы будут с упором на код и структуру",
-        brief: "Сейчас ответы будут короче и по сути"
+        brief: "Сейчас ответы будут короткими"
       }[mode] || "Обычный формат ответа";
       const toneHint = tone === "normal" ? "" : ` · стиль: ${toneLabel(tone)}`;
       composerModeHint.textContent = modeHint + toneHint;
@@ -336,18 +340,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyStatus(mode = null) {
     const cfg = getConfig();
     const serverKeyEnabled = body.dataset.serverKeyEnabled === "true";
-    const connected = !!(serverKeyEnabled || cfg.apiKey);
+    const connected = !!cfg.apiKey || serverKeyEnabled;
+
     statusDot?.classList.toggle("connected", connected);
     topStatusDot?.classList.toggle("connected", connected);
     mobileTopStatusDot?.classList.toggle("connected", connected);
-    if (connected) {
-      statusText.textContent = "Серверное ядро";
-      statusMeta.textContent = "";
-    } else {
-      statusText.textContent = "Локальный режим";
-      statusMeta.textContent = "";
-    }
-    modeLabel.textContent = connected ? "AI online" : "AI local";
+
+    statusText.textContent = connected ? "Сервер подключён" : (t.local_mode || "Локальный режим");
+    modeLabel.textContent = connected ? "Онлайн" : "Локально";
     infoBanner.style.display = connected ? "none" : "flex";
   }
 
@@ -727,12 +727,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const res = await fetch("/upload-file", {method:"POST", body: form});
     const data = await res.json();
     if (data.image_url) {
-      addMessage("user", `[Изображение: ${data.filename || file.name}]`, false);
       addImageMessage(data.image_url, data.filename || "Изображение");
-      addMessage("assistant", "Изображение добавлено. Можешь попросить описание или разбор, если модель это поддерживает.", true);
-    } else {
-      await refreshCurrentChat();
     }
+    await refreshCurrentChat();
     attachMenu.classList.add("hidden");
     showToast(data.image_url ? "Изображение добавлено." : "Файл добавлен.");
   }
@@ -786,7 +783,6 @@ document.addEventListener("DOMContentLoaded", () => {
     body.dataset.profileMode = payload.mode;
     body.dataset.profilePhoto = payload.photo_url;
     syncAvatar();
-  if (settingsVoiceGenderSelect) settingsVoiceGenderSelect.value = body.dataset.voiceGender || "male";
     updateModeUi();
     showToast("Профиль обновлён.");
     profileModal.classList.add("hidden");
@@ -851,26 +847,12 @@ document.addEventListener("DOMContentLoaded", () => {
   async function saveSettings() {
     localStorage.setItem("voloshin_theme", themeSelect.value);
     applyTheme(themeSelect.value);
-    const payload = {
-      language: languageSelect.value,
-      voice_gender: settingsVoiceGenderSelect ? settingsVoiceGenderSelect.value : (body.dataset.voiceGender || "male")
-    };
-    const res = await fetch("/save-settings", {
+    await fetch("/save-settings", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(payload)
+      body: JSON.stringify({language: languageSelect.value})
     });
-    const data = await res.json();
-    if (!data.ok) {
-      showToast(data.error || "Ошибка");
-      return;
-    }
-    body.dataset.language = payload.language;
-    body.dataset.voiceGender = payload.voice_gender;
-    updateModeUi();
-    showToast("Настройки сохранены.");
-    settingsModal.classList.add("hidden");
-    document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
+    location.reload();
   }
 
   async function saveTrain() {
@@ -989,7 +971,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("openSettingsBtn").onclick = () => { closeSidebarMobile();
       languageSelect.value = body.dataset.language || "ru";
       themeSelect.value = getPreferredTheme();
-      if (settingsVoiceGenderSelect) settingsVoiceGenderSelect.value = body.dataset.voiceGender || "male";
+      if (settingsVoiceGenderSelect) settingsVoiceGenderSelect.value = localStorage.getItem("voloshin_voice_gender") || body.dataset.voiceGender || "male";
       settingsModal.classList.remove("hidden");
       document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
     };
@@ -1015,9 +997,9 @@ document.addEventListener("DOMContentLoaded", () => {
     $("closeProfileBtn2").onclick = () => profileModal.classList.add("hidden");
     $("closeAccountModalBtn") && ($("closeAccountModalBtn").onclick = () => accountModal.classList.add("hidden"));
     $("closeAccountModalBtn2") && ($("closeAccountModalBtn2").onclick = () => accountModal.classList.add("hidden"));
-    $("closeConfirmLogoutBtn") && ($("closeConfirmLogoutBtn").onclick = () => confirmLogoutModal.classList.add("hidden"));
-    $("cancelLogoutBtn") && ($("cancelLogoutBtn").onclick = () => confirmLogoutModal.classList.add("hidden"));
-    $("confirmLogoutBtn") && ($("confirmLogoutBtn").onclick = () => { confirmLogoutModal.classList.add("hidden"); logoutUser(); });
+    $("closeLogoutConfirmBtn") && ($("closeLogoutConfirmBtn").onclick = () => logoutConfirmModal.classList.add("hidden"));
+    $("cancelLogoutBtn") && ($("cancelLogoutBtn").onclick = () => logoutConfirmModal.classList.add("hidden"));
+    $("confirmLogoutBtn") && ($("confirmLogoutBtn").onclick = async () => { logoutConfirmModal.classList.add("hidden"); await logoutUser(); });
     $("closeTrainBtn").onclick = () => trainModal.classList.add("hidden");
     $("closeTrainBtn2").onclick = () => trainModal.classList.add("hidden");
     $("closeImageBtn").onclick = () => imageModal.classList.add("hidden");
@@ -1026,7 +1008,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("saveProfileBtn").onclick = saveProfile;
     $("saveAccountBtn").onclick = saveAccount;
     $("savePhotoBtn").onclick = savePhotoOnly;
-    $("logoutFromProfileBtn").onclick = () => { confirmLogoutModal.classList.remove("hidden"); };
+    $("logoutFromProfileBtn").onclick = () => logoutConfirmModal.classList.remove("hidden");
     $("saveTrainBtn").onclick = saveTrain;
     $("saveSettingsBtn").onclick = saveSettings;
     $("generateImageBtn").onclick = generateImage;
@@ -1037,6 +1019,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     toggleAuthPassword && (toggleAuthPassword.onchange = () => { authPassword.type = toggleAuthPassword.checked ? "text" : "password"; });
     toggleRegisterPassword && (toggleRegisterPassword.onchange = () => { registerPassword.type = toggleRegisterPassword.checked ? "text" : "password"; });
+    toggleCurrentAccountPassword && (toggleCurrentAccountPassword.onchange = () => { currentAccountPassword.type = toggleCurrentAccountPassword.checked ? "text" : "password"; });
     toggleAccountPassword && (toggleAccountPassword.onchange = () => {
       accountPassword.type = toggleAccountPassword.checked ? "text" : "password";
     });
@@ -1044,7 +1027,6 @@ document.addEventListener("DOMContentLoaded", () => {
     guestBtn.onclick = startGuestMode;
     toneSelect && (toneSelect.onchange = () => updateModeUi());
     modeSelect && (modeSelect.onchange = () => updateModeUi());
-    settingsVoiceGenderSelect && (settingsVoiceGenderSelect.onchange = () => {});
     voiceGenderSelect && (voiceGenderSelect.onchange = () => updateModeUi());
     $("welcomeLoginBtn").onclick = () => { welcomeGate.classList.remove("show"); openLoginModal(); };
     $("welcomeRegisterBtn").onclick = () => { welcomeGate.classList.remove("show"); openRegisterModal(); };
@@ -1052,7 +1034,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("openRegisterModalBtn").onclick = () => { authModal.classList.add("hidden"); openRegisterModal(); };
     $("switchToLoginBtn").onclick = () => { registerModal.classList.add("hidden"); openLoginModal(); };
 
-    [settingsModal, authModal, registerModal, aiModal, profileModal, accountModal, confirmLogoutModal, trainModal, imageModal].forEach(m => m && closeModalOnBackdrop(m));
+    [settingsModal, authModal, registerModal, aiModal, profileModal, accountModal, trainModal, imageModal, logoutConfirmModal].forEach(m => m && closeModalOnBackdrop(m));
 
     attachBtn.onclick = (e) => {
       e.stopPropagation();
