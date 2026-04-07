@@ -347,7 +347,7 @@ document.addEventListener("DOMContentLoaded", () => {
     mobileTopStatusDot?.classList.toggle("connected", connected);
 
     statusText.textContent = connected ? "Сервер подключён" : (t.local_mode || "Локальный режим");
-    modeLabel.textContent = connected ? "Онлайн" : "Локально";
+    modeLabel.textContent = connected ? "AI online" : "AI local";
     infoBanner.style.display = connected ? "none" : "flex";
   }
 
@@ -724,14 +724,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = new FormData();
     form.append("file", file);
     showToast(`Загружаю: ${file.name}`);
-    const res = await fetch("/upload-file", {method:"POST", body: form});
-    const data = await res.json();
-    if (data.image_url) {
-      addImageMessage(data.image_url, data.filename || "Изображение");
+    try {
+      const res = await fetch("/upload-file", {method:"POST", body: form});
+      const data = await res.json();
+      await refreshCurrentChat();
+      if (data.image_url) {
+        addImageMessage(data.image_url, data.filename || "Изображение");
+      }
+      attachMenu.classList.add("hidden");
+      showToast(data.image_url ? "Изображение добавлено." : "Файл добавлен.");
+    } catch (e) {
+      showToast("Не удалось загрузить файл.");
     }
-    await refreshCurrentChat();
-    attachMenu.classList.add("hidden");
-    showToast(data.image_url ? "Изображение добавлено." : "Файл добавлен.");
   }
 
   function fileToDataURL(file) {
@@ -1006,6 +1010,14 @@ document.addEventListener("DOMContentLoaded", () => {
     $("closeImageBtn2").onclick = () => imageModal.classList.add("hidden");
 
     $("saveProfileBtn").onclick = saveProfile;
+
+    profilePhotoFile && (profilePhotoFile.onchange = () => {
+      if (profilePhotoName) profilePhotoName.textContent = profilePhotoFile.files?.[0]?.name || "Файл не выбран";
+    });
+    $("saveNameBtn") && ($("saveNameBtn").onclick = saveProfile);
+    $("saveAboutBtn") && ($("saveAboutBtn").onclick = saveProfile);
+    $("saveToneBtn") && ($("saveToneBtn").onclick = saveProfile);
+    $("saveModeBtn") && ($("saveModeBtn").onclick = saveProfile);
     $("saveAccountBtn").onclick = saveAccount;
     $("savePhotoBtn").onclick = savePhotoOnly;
     $("logoutFromProfileBtn").onclick = () => logoutConfirmModal.classList.remove("hidden");

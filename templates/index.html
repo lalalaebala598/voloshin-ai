@@ -143,7 +143,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
         <div class="top-status" id="mobileTopStatus"><span class="status-dot" id="mobileTopStatusDot"></span><span class="mobile-top-status-text">AI online</span></div>
         <div class="top-status">
           <span class="status-dot" id="topStatusDot"></span>
-          <span id="modeLabel">Онлайн</span>
+          <span id="modeLabel">AI online</span>
         </div>
       </div>
     </div>
@@ -355,74 +355,94 @@ window.TRANSLATIONS = {{ translations|tojson }};
 </div>
 
 <!-- profile -->
+
 <div class="modal hidden" id="profileModal">
   <div class="modal-card glass-strong">
     <div class="modal-header">
-      <div><div class="modal-title" data-i18n="profile_title">{{ translations.profile_title }}</div></div>
+      <div>
+        <div class="modal-title" data-i18n="profile_title">{{ translations.profile_title }}</div>
+        <div class="modal-subtitle">Данные профиля и стиль ответов.</div>
+      </div>
       <button class="icon-btn" id="closeProfileBtn">×</button>
     </div>
-    <div class="field">
+
+    <div class="field inline-save-field">
       <label data-i18n="name">{{ translations.name }}</label>
-      <input id="profileName" type="text">
+      <div class="inline-save-row">
+        <input id="profileName" type="text">
+        <button class="mini-inline-save" id="saveNameBtn" type="button" title="Сохранить">✓</button>
+      </div>
     </div>
-    <div class="field">
+
+    <div class="field inline-save-field">
       <label data-i18n="about">{{ translations.about }}</label>
-      <input id="profileAbout" type="text" placeholder="Например: Меня зовут Артём, мне 20 лет, люблю смотреть спорт.">
+      <div class="inline-save-row">
+        <input id="profileAbout" type="text" placeholder="Например: Меня зовут Артём, мне 20 лет, люблю смотреть спорт.">
+        <button class="mini-inline-save" id="saveAboutBtn" type="button" title="Сохранить">✓</button>
+      </div>
     </div>
-      <div class="mini-mode-pill" id="activeModePill">Режим: обычный</div>
-    </div>
-    <div class="field">
+
+    <div class="field inline-save-field">
       <label data-i18n="style">{{ translations.style }}</label>
-      <div class="select-pill-wrap custom-dropdown-wrap">
-        <select id="toneSelect" class="hidden-real-select">
-          <option value="normal">{{ translations.normal }}</option>
-          <option value="rude">{{ translations.rude }}</option>
-          <option value="polite">{{ translations.polite }}</option>
-        </select>
-        <button class="model-display-btn custom-display-btn" type="button">
-          <span class="custom-display-value"></span>
-          <span class="model-caret"></span>
-        </button>
-        <div class="model-dropdown hidden">
-          <button class="model-option" data-value="normal" type="button">{{ translations.normal }}</button>
-          <button class="model-option" data-value="rude" type="button">{{ translations.rude }}</button>
-          <button class="model-option" data-value="polite" type="button">{{ translations.polite }}</button>
+      <div class="inline-save-row">
+        <div class="select-pill-wrap custom-dropdown-wrap grow-wrap">
+          <select id="toneSelect" class="hidden-real-select">
+            <option value="normal">{{ translations.normal }}</option>
+            <option value="rude">{{ translations.rude }}</option>
+            <option value="polite">{{ translations.polite }}</option>
+          </select>
+          <button class="model-display-btn custom-display-btn" type="button">
+            <span class="custom-display-value"></span>
+            <span class="model-caret"></span>
+          </button>
+          <div class="model-dropdown hidden">
+            <button class="model-option" data-value="normal" type="button">{{ translations.normal }}</button>
+            <button class="model-option" data-value="rude" type="button">{{ translations.rude }}</button>
+            <button class="model-option" data-value="polite" type="button">{{ translations.polite }}</button>
+          </div>
         </div>
+        <button class="mini-inline-save" id="saveToneBtn" type="button" title="Сохранить">✓</button>
       </div>
     </div>
-    <div class="field">
+
+    <div class="field inline-save-field">
       <label data-i18n="mode">{{ translations.mode }}</label>
-      <div class="select-pill-wrap custom-dropdown-wrap">
-        <select id="modeSelect" class="hidden-real-select">
-          <option value="normal">{{ translations.normal }}</option>
-          <option value="teacher">{{ translations.teacher }}</option>
-          <option value="coder">{{ translations.coder }}</option>
-          <option value="brief">{{ translations.brief }}</option>
-        </select>
-        <button class="model-display-btn custom-display-btn" type="button">
-          <span class="custom-display-value"></span>
-          <span class="model-caret"></span>
-        </button>
-        <div class="model-dropdown hidden">
-          <button class="model-option" data-value="normal" type="button">{{ translations.normal }}</button>
-          <button class="model-option" data-value="teacher" type="button">{{ translations.teacher }}</button>
-          <button class="model-option" data-value="coder" type="button">{{ translations.coder }}</button>
-          <button class="model-option" data-value="brief" type="button">{{ translations.brief }}</button>
+      <div class="inline-save-row">
+        <div class="select-pill-wrap custom-dropdown-wrap grow-wrap">
+          <select id="modeSelect" class="hidden-real-select">
+            <option value="normal">{{ translations.normal }}</option>
+            <option value="teacher">{{ translations.teacher }}</option>
+            <option value="coder">{{ translations.coder }}</option>
+            <option value="brief">{{ translations.brief }}</option>
+          </select>
+          <button class="model-display-btn custom-display-btn" type="button">
+            <span class="custom-display-value"></span>
+            <span class="model-caret"></span>
+          </button>
+          <div class="model-dropdown hidden">
+            <button class="model-option" data-value="normal" type="button">{{ translations.normal }}</button>
+            <button class="model-option" data-value="teacher" type="button">{{ translations.teacher }}</button>
+            <button class="model-option" data-value="coder" type="button">{{ translations.coder }}</button>
+            <button class="model-option" data-value="brief" type="button">{{ translations.brief }}</button>
+          </div>
         </div>
+        <button class="mini-inline-save" id="saveModeBtn" type="button" title="Сохранить">✓</button>
       </div>
     </div>
-    </div>
-    <div class="field">
+
+    <div class="field inline-save-field">
       <label>Фото профиля</label>
-      <label class="file-picker-ui" for="profilePhotoFile">
-        <span class="file-picker-main">Выбрать фото</span>
-        <span class="file-picker-meta" id="profilePhotoName">Файл не выбран</span>
-      </label>
+      <div class="inline-save-row">
+        <label class="file-picker-ui grow-wrap" for="profilePhotoFile">
+          <span class="file-picker-main">Выбрать фото</span>
+          <span class="file-picker-meta" id="profilePhotoName">Файл не выбран</span>
+        </label>
+        <button class="mini-inline-save" id="savePhotoBtn" type="button" title="Сохранить">✓</button>
+      </div>
       <input id="profilePhotoFile" type="file" accept="image/*" hidden>
       <input id="profilePhotoUrl" type="hidden">
-      <button class="mini-save-photo-btn" id="savePhotoBtn" type="button">Сохранить</button>
     </div>
-              
+
     <div class="modal-actions profile-footer-actions">
       <button class="secondary-btn" id="closeProfileBtn2" data-i18n="close">{{ translations.close }}</button>
       <button class="soft-btn" id="openAccountModalBtn">Аккаунт и безопасность</button>
@@ -430,7 +450,6 @@ window.TRANSLATIONS = {{ translations|tojson }};
     </div>
   </div>
 </div>
-
 
 <div class="modal hidden" id="accountModal">
   <div class="modal-card glass-strong">

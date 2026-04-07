@@ -1811,3 +1811,61 @@ body.theme-light .danger-btn{
   .top-title{font-size:17px!important}
 }
 .profile-hints{display:none!important}.settings-divider-title,.settings-divider-subtitle{display:none!important}
+
+
+/* profile hotfix */
+.inline-save-field .inline-save-row{
+  display:flex;
+  align-items:stretch;
+  gap:10px;
+}
+.inline-save-field .grow-wrap{
+  flex:1 1 auto;
+  min-width:0;
+}
+.mini-inline-save{
+  flex:0 0 42px;
+  width:42px;
+  height:42px;
+  border:none;
+  border-radius:14px;
+  cursor:pointer;
+  font:inherit;
+  font-weight:800;
+  color:#eef4ff;
+  background:linear-gradient(135deg, rgba(255,255,255,.12), rgba(123,146,255,.16));
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 8px 18px rgba(0,0,0,.12);
+  transition:transform .14s ease, box-shadow .14s ease, background .14s ease;
+}
+.mini-inline-save:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 22px rgba(0,0,0,.16);
+}
+body.theme-light .mini-inline-save{
+  color:#17305f;
+  background:linear-gradient(135deg, rgba(18,36,67,.08), rgba(123,146,255,.12));
+  border-color:rgba(39,62,113,.12);
+}
+.profile-footer-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.file-picker-ui{
+  min-height:42px;
+}
+.logo-fallback svg{
+  width:42px;
+  height:42px;
+}
+@media (max-width: 980px){
+  .inline-save-field .inline-save-row{
+    gap:8px;
+  }
+  .mini-inline-save{
+    flex:0 0 40px;
+    width:40px;
+    height:40px;
+  }
+}
