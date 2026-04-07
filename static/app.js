@@ -258,11 +258,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyMobileViewportFix() {
     if (!window.visualViewport) return;
     const update = () => {
-      const vv = window.visualViewport;
-      const diff = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      document.documentElement.style.setProperty("--keyboard-offset", `${diff}px`);
-      if (document.activeElement === input && diff > 0) {
-        setTimeout(() => scrollToBottom(true), 30);
+      document.documentElement.style.setProperty("--keyboard-offset", `0px`);
+      if (document.activeElement === input) {
+        setTimeout(() => scrollToBottom(true), 20);
       }
     };
     update();
@@ -698,7 +696,9 @@ document.addEventListener("DOMContentLoaded", () => {
     accountPassword.value = "";
     profilePhotoUrl.value = body.dataset.profilePhoto || "";
     document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
-    profileModal.classList.remove("hidden");
+    const openModal = () => profileModal.classList.remove("hidden");
+    if (window.innerWidth <= 980) setTimeout(openModal, 120);
+    else openModal();
   }
 
   async function saveProfile() {
