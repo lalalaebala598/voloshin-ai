@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const voiceInputBtn = document.getElementById("voiceInputBtn");
   const attachMenu = document.getElementById("attachMenu");
   const photoInput = document.getElementById("photoInput");
+  const cameraInput = document.getElementById("cameraInput");
   const fileInput = document.getElementById("fileInput");
 
   const settingsModal = document.getElementById("settingsModal");
@@ -124,13 +125,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
   let isListening = false;
+  let activeUtterance = null;
+  let activeSpeakBtn = null;
 
   function stopVoiceRecognition() {
     try { recognition && recognition.stop(); } catch (_) {}
     isListening = false;
     voiceInputBtn?.classList.remove("listening");
     if (voiceInputBtn) voiceInputBtn.title = "Голосовой ввод";
-    input.dataset.voiceBase = "";
+    if (input) input.dataset.voiceBase = "";
   }
 
   function ensureVoiceRecognition() {
@@ -157,21 +160,21 @@ document.addEventListener("DOMContentLoaded", () => {
         if (event.results[i].isFinal) finalText += text;
         else interimText += text;
       }
-      const base = input.dataset.voiceBase || "";
+      const base = input?.dataset.voiceBase || "";
       const extra = (finalText || interimText).trim();
-      input.value = [base, extra].filter(Boolean).join(base && extra ? " " : "");
+      if (input) input.value = [base, extra].filter(Boolean).join(base && extra ? " " : "");
     };
 
     recognition.onend = () => {
       isListening = false;
-      input.dataset.voiceBase = "";
+      if (input) input.dataset.voiceBase = "";
       voiceInputBtn?.classList.remove("listening");
       if (voiceInputBtn) voiceInputBtn.title = "Голосовой ввод";
     };
 
     recognition.onerror = (event) => {
       isListening = false;
-      input.dataset.voiceBase = "";
+      if (input) input.dataset.voiceBase = "";
       voiceInputBtn?.classList.remove("listening");
       if (voiceInputBtn) voiceInputBtn.title = "Голосовой ввод";
       const code = event?.error || "unknown";
@@ -194,13 +197,60 @@ document.addEventListener("DOMContentLoaded", () => {
       stopVoiceRecognition();
       return;
     }
-    input.dataset.voiceBase = (input.value || "").trim();
+    if (input) input.dataset.voiceBase = (input.value || "").trim();
     try {
       rec.lang = (body.dataset.language || "ru") === "ru" ? "ru-RU" : "en-US";
       rec.start();
     } catch (_) {
       showToast("Не удалось запустить микрофон.");
     }
+  }
+
+  function getPreferredVoice() {
+    const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    if (!voices || !voices.length) return null;
+    return voices.find(v => /ru/i.test(v.lang) && /(male|aleksei|yuri|pavel|nikolai|google|russian)/i.test(v.name))
+      || voices.find(v => /ru/i.test(v.lang))
+      || voices.find(v => /en/i.test(v.lang) && /(male|daniel|alex|tom|fred)/i.test(v.name))
+      || voices[0]
+      || null;
+  }
+
+  function stopSpeaking() {
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+    activeUtterance = null;
+    if (activeSpeakBtn) activeSpeakBtn.classList.remove("speaking");
+    activeSpeakBtn = null;
+  }
+
+  function speakText(text, btn = null) {
+    if (!("speechSynthesis" in window)) {
+      showToast("Озвучка в этом браузере не поддерживается.");
+      return;
+    }
+    const clean = String(text || "").replace(/<[^>]+>/g, "").trim();
+    if (!clean) return;
+    if (activeSpeakBtn === btn && activeUtterance) {
+      stopSpeaking();
+      return;
+    }
+    stopSpeaking();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    const voice = getPreferredVoice();
+    if (voice) utterance.voice = voice;
+    utterance.lang = voice?.lang || ((body.dataset.language || "ru") === "ru" ? "ru-RU" : "en-US");
+    utterance.rate = 0.98;
+    utterance.pitch = 0.86;
+    utterance.volume = 1;
+    utterance.onend = () => stopSpeaking();
+    utterance.onerror = () => {
+      stopSpeaking();
+      showToast("Не удалось озвучить ответ.");
+    };
+    activeUtterance = utterance;
+    activeSpeakBtn = btn;
+    if (btn) btn.classList.add("speaking");
+    window.speechSynthesis.speak(utterance);
   }
 
 
@@ -279,56 +329,6 @@ document.addEventListener("DOMContentLoaded", () => {
       } else scrollToBottom(true);
     }
     tick();
-  }
-
-  let activeUtterance = null;
-  let activeSpeakBtn = null;
-
-  function getPreferredVoice() {
-    const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
-    if (!voices || !voices.length) return null;
-    const preferred = voices.find(v => /ru/i.test(v.lang) && /(male|aleksei|yuri|pavel|nikolai|google|russian)/i.test(v.name))
-      || voices.find(v => /ru/i.test(v.lang))
-      || voices.find(v => /en/i.test(v.lang) && /(male|daniel|alex|tom|fred)/i.test(v.name))
-      || voices[0];
-    return preferred || null;
-  }
-
-  function stopSpeaking() {
-    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
-    activeUtterance = null;
-    if (activeSpeakBtn) activeSpeakBtn.classList.remove("speaking");
-    activeSpeakBtn = null;
-  }
-
-  function speakText(text, btn = null) {
-    if (!("speechSynthesis" in window)) {
-      showToast("Озвучка в этом браузере не поддерживается.");
-      return;
-    }
-    const clean = String(text || "").replace(/<[^>]+>/g, "").trim();
-    if (!clean) return;
-    if (activeSpeakBtn === btn && activeUtterance) {
-      stopSpeaking();
-      return;
-    }
-    stopSpeaking();
-    const utterance = new SpeechSynthesisUtterance(clean);
-    const voice = getPreferredVoice();
-    if (voice) utterance.voice = voice;
-    utterance.lang = voice?.lang || ((body.dataset.language || "ru") === "ru" ? "ru-RU" : "en-US");
-    utterance.rate = 0.98;
-    utterance.pitch = 0.86;
-    utterance.volume = 1;
-    utterance.onend = () => stopSpeaking();
-    utterance.onerror = () => {
-      stopSpeaking();
-      showToast("Не удалось озвучить ответ.");
-    };
-    activeUtterance = utterance;
-    activeSpeakBtn = btn;
-    if (btn) btn.classList.add("speaking");
-    window.speechSynthesis.speak(utterance);
   }
 
   function messageToolsHTML(text) {
@@ -963,6 +963,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     photoInput.onchange = () => uploadFile(photoInput.files[0]);
+    cameraInput && (cameraInput.onchange = () => uploadFile(cameraInput.files[0]));
     fileInput.onchange = () => uploadFile(fileInput.files[0]);
 
     messages.addEventListener("click", async (e) => {
