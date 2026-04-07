@@ -1135,10 +1135,57 @@ body.theme-light .app-toast{
 }
 
 
-/* ===== voice input ===== */
+/* ===== Big polish: logo / camera / voice / faster animations ===== */
+:root{
+  --ui-fast: .16s;
+}
+
+.welcome-logo svg{
+  width:48px;
+  height:48px;
+}
+.welcome-logo{
+  position:relative;
+}
+.welcome-logo::after{
+  content:"";
+  position:absolute;
+  inset:-8px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(123,140,255,.22), transparent 62%);
+  pointer-events:none;
+}
+
+.attach-option,
+.icon-btn,
+.send-btn,
+.attach-btn,
+.secondary-btn,
+.soft-btn,
+.primary-btn,
+.chat-item,
+.tool-btn,
+.model-option,
+.model-display-btn,
+.custom-display-btn,
+.profile-entry,
+.topbar,
+.welcome-card,
+.modal-card,
+.composer,
+.messages-wrap{
+  transition:
+    background var(--ui-fast) ease,
+    border-color var(--ui-fast) ease,
+    color var(--ui-fast) ease,
+    box-shadow var(--ui-fast) ease,
+    transform var(--ui-fast) ease,
+    opacity var(--ui-fast) ease !important;
+}
+
 .voice-btn{
   font-size:18px;
-  transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
 .voice-btn.listening{
   transform:scale(1.06);
@@ -1150,18 +1197,12 @@ body.theme-light .app-toast{
   inset:-3px;
   border-radius:inherit;
   border:1px solid rgba(73,227,141,.45);
-  animation:voicePulse 1.2s ease-out infinite;
+  animation:voicePulse 1s ease-out infinite;
 }
 @keyframes voicePulse{
   0%{transform:scale(1);opacity:.9}
-  100%{transform:scale(1.18);opacity:0}
+  100%{transform:scale(1.16);opacity:0}
 }
-body.theme-light .voice-btn.listening{
-  box-shadow:0 0 0 6px rgba(73,227,141,.10), 0 0 18px rgba(73,227,141,.22);
-}
-
-
-/* ===== voice output ===== */
 .tool-btn.speak-btn{
   min-width:44px;
   font-size:16px;
@@ -1169,6 +1210,30 @@ body.theme-light .voice-btn.listening{
 .tool-btn.speak-btn.speaking{
   box-shadow:0 0 0 6px rgba(107,115,255,.10), 0 0 18px rgba(107,115,255,.30);
 }
+body.theme-light .voice-btn.listening{
+  box-shadow:0 0 0 6px rgba(73,227,141,.10), 0 0 18px rgba(73,227,141,.22);
+}
 body.theme-light .tool-btn.speak-btn.speaking{
   box-shadow:0 0 0 6px rgba(107,115,255,.08), 0 0 16px rgba(107,115,255,.18);
+}
+
+@media (max-width: 980px){
+  .sidebar,
+  .sidebar.open{
+    transition:transform .18s ease, visibility .18s ease !important;
+  }
+
+  .topbar{
+    padding:10px 12px !important;
+    border-radius:18px !important;
+  }
+
+  .top-title{
+    font-size:17px !important;
+  }
+
+  .beta-badge{
+    font-size:9px !important;
+    padding:3px 7px !important;
+  }
 }
