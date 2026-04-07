@@ -1007,3 +1007,73 @@ body.theme-light .app-toast{
     font-size:15px !important;
   }
 }
+
+
+/* ===== mobile fix v2 ===== */
+@media (max-width: 980px){
+  .sidebar{
+    width:min(78vw, 330px) !important;
+    max-width:78vw !important;
+    transform:translateX(-104%) !important;
+    opacity:1 !important;
+    visibility:hidden;
+  }
+
+  .sidebar.open{
+    transform:translateX(0) !important;
+    opacity:1 !important;
+    visibility:visible;
+  }
+
+  .sidebar-glass{
+    position:relative;
+    min-height:100%;
+  }
+
+  .mobile-sidebar-close{
+    display:inline-flex !important;
+    align-items:center;
+    justify-content:center;
+    position:absolute;
+    top:12px;
+    right:12px;
+    width:40px;
+    height:40px;
+    font-size:24px;
+    line-height:1;
+    z-index:8;
+  }
+
+  .profile-entry{
+    padding-right:54px !important;
+  }
+
+  .topbar{
+    padding:12px 12px !important;
+    border-radius:20px !important;
+    gap:10px !important;
+  }
+
+  .top-title{
+    font-size:18px !important;
+  }
+
+  .beta-badge{
+    font-size:9px !important;
+    padding:3px 7px !important;
+  }
+
+  .main{
+    padding:10px 10px calc(86px + env(safe-area-inset-bottom)) !important;
+    gap:10px !important;
+  }
+
+  #mobileTopStatus{
+    padding:6px 10px !important;
+    font-size:12px !important;
+  }
+
+  .hero-card{
+    padding:14px !important;
+  }
+}
