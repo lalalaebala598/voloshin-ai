@@ -426,8 +426,7 @@ def parse_uploaded_file(file_storage):
         if PdfReader is None:
             return filename, "Для чтения PDF нужен пакет pypdf.", None
         reader = PdfReader(io.BytesIO(file_storage.read()))
-        text = "
-".join((page.extract_text() or "") for page in reader.pages[:10])
+        text = "\n".join((page.extract_text() or "") for page in reader.pages[:10])
         return filename, text[:9000], None
     if ext == ".docx":
         if Document is None:
@@ -435,8 +434,7 @@ def parse_uploaded_file(file_storage):
         temp = os.path.join(UPLOAD_DIR, filename)
         file_storage.save(temp)
         doc = Document(temp)
-        text = "
-".join(p.text for p in doc.paragraphs)[:9000]
+        text = "\n".join(p.text for p in doc.paragraphs)[:9000]
         try: os.remove(temp)
         except Exception: pass
         return filename, text, None
