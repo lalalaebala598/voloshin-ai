@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatList = document.getElementById("chatList");
 
   const attachBtn = document.getElementById("attachBtn");
+  const voiceInputBtn = document.getElementById("voiceInputBtn");
   const attachMenu = document.getElementById("attachMenu");
   const photoInput = document.getElementById("photoInput");
   const fileInput = document.getElementById("fileInput");
@@ -119,6 +120,90 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 2200);
   }
 
+
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isListening = false;
+
+  function stopVoiceRecognition() {
+    try { recognition && recognition.stop(); } catch (_) {}
+    isListening = false;
+    voiceInputBtn?.classList.remove("listening");
+    if (voiceInputBtn) voiceInputBtn.title = "Голосовой ввод";
+    input.dataset.voiceBase = "";
+  }
+
+  function ensureVoiceRecognition() {
+    if (!SpeechRecognitionAPI) return null;
+    if (recognition) return recognition;
+
+    recognition = new SpeechRecognitionAPI();
+    recognition.lang = (body.dataset.language || "ru") === "ru" ? "ru-RU" : "en-US";
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      isListening = true;
+      voiceInputBtn?.classList.add("listening");
+      if (voiceInputBtn) voiceInputBtn.title = "Слушаю...";
+      showToast("Слушаю...");
+    };
+
+    recognition.onresult = (event) => {
+      let finalText = "";
+      let interimText = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0]?.transcript || "";
+        if (event.results[i].isFinal) finalText += text;
+        else interimText += text;
+      }
+      const base = input.dataset.voiceBase || "";
+      const extra = (finalText || interimText).trim();
+      input.value = [base, extra].filter(Boolean).join(base && extra ? " " : "");
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      input.dataset.voiceBase = "";
+      voiceInputBtn?.classList.remove("listening");
+      if (voiceInputBtn) voiceInputBtn.title = "Голосовой ввод";
+    };
+
+    recognition.onerror = (event) => {
+      isListening = false;
+      input.dataset.voiceBase = "";
+      voiceInputBtn?.classList.remove("listening");
+      if (voiceInputBtn) voiceInputBtn.title = "Голосовой ввод";
+      const code = event?.error || "unknown";
+      if (code === "not-allowed") showToast("Дай доступ к микрофону.");
+      else if (code === "no-speech") showToast("Не услышал речь.");
+      else showToast("Ошибка голосового ввода.");
+    };
+
+    return recognition;
+  }
+
+  function toggleVoiceRecognition() {
+    if (!voiceInputBtn) return;
+    const rec = ensureVoiceRecognition();
+    if (!rec) {
+      showToast("В этом браузере голосовой ввод не поддерживается.");
+      return;
+    }
+    if (isListening) {
+      stopVoiceRecognition();
+      return;
+    }
+    input.dataset.voiceBase = (input.value || "").trim();
+    try {
+      rec.lang = (body.dataset.language || "ru") === "ru" ? "ru-RU" : "en-US";
+      rec.start();
+    } catch (_) {
+      showToast("Не удалось запустить микрофон.");
+    }
+  }
+
+
   function getConfig() {
     return {
       apiKey: localStorage.getItem("voloshin_groq_api_key") || "",
@@ -196,10 +281,61 @@ document.addEventListener("DOMContentLoaded", () => {
     tick();
   }
 
+  let activeUtterance = null;
+  let activeSpeakBtn = null;
+
+  function getPreferredVoice() {
+    const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    if (!voices || !voices.length) return null;
+    const preferred = voices.find(v => /ru/i.test(v.lang) && /(male|aleksei|yuri|pavel|nikolai|google|russian)/i.test(v.name))
+      || voices.find(v => /ru/i.test(v.lang))
+      || voices.find(v => /en/i.test(v.lang) && /(male|daniel|alex|tom|fred)/i.test(v.name))
+      || voices[0];
+    return preferred || null;
+  }
+
+  function stopSpeaking() {
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+    activeUtterance = null;
+    if (activeSpeakBtn) activeSpeakBtn.classList.remove("speaking");
+    activeSpeakBtn = null;
+  }
+
+  function speakText(text, btn = null) {
+    if (!("speechSynthesis" in window)) {
+      showToast("Озвучка в этом браузере не поддерживается.");
+      return;
+    }
+    const clean = String(text || "").replace(/<[^>]+>/g, "").trim();
+    if (!clean) return;
+    if (activeSpeakBtn === btn && activeUtterance) {
+      stopSpeaking();
+      return;
+    }
+    stopSpeaking();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    const voice = getPreferredVoice();
+    if (voice) utterance.voice = voice;
+    utterance.lang = voice?.lang || ((body.dataset.language || "ru") === "ru" ? "ru-RU" : "en-US");
+    utterance.rate = 0.98;
+    utterance.pitch = 0.86;
+    utterance.volume = 1;
+    utterance.onend = () => stopSpeaking();
+    utterance.onerror = () => {
+      stopSpeaking();
+      showToast("Не удалось озвучить ответ.");
+    };
+    activeUtterance = utterance;
+    activeSpeakBtn = btn;
+    if (btn) btn.classList.add("speaking");
+    window.speechSynthesis.speak(utterance);
+  }
+
   function messageToolsHTML(text) {
     const safe = text.replace(/"/g, '&quot;');
     return `<div class="message-tools">
       <button class="tool-btn copy-btn" data-copy="${safe}">${t.copy || "Копировать"}</button>
+      <button class="tool-btn speak-btn" data-speak="${safe}" title="Озвучить">🔊</button>
       <button class="tool-btn like-btn" data-feedback="like" data-text="${safe}">👍</button>
       <button class="tool-btn dislike-btn" data-feedback="dislike" data-text="${safe}">👎</button>
     </div>`;
@@ -750,6 +886,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function initEvents() {
     $("brandCollapseBtn").onclick = toggleSidebar;
     mobileSidebarCloseBtn && (mobileSidebarCloseBtn.onclick = closeSidebarMobile);
+    voiceInputBtn && (voiceInputBtn.onclick = toggleVoiceRecognition);
     $("openSettingsBtn").onclick = () => { closeSidebarMobile();
       languageSelect.value = body.dataset.language || "ru";
       themeSelect.value = getPreferredTheme();
@@ -830,6 +967,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     messages.addEventListener("click", async (e) => {
       const copyBtn = e.target.closest(".copy-btn");
+      const speakBtn = e.target.closest(".speak-btn");
       const feedbackBtn = e.target.closest(".like-btn, .dislike-btn");
       if (copyBtn) {
         const text = copyBtn.dataset.copy || "";
@@ -838,6 +976,10 @@ document.addEventListener("DOMContentLoaded", () => {
           copyBtn.textContent = t.copied || "Скопировано";
           setTimeout(() => copyBtn.textContent = t.copy || "Копировать", 1200);
         } catch (_) {}
+      }
+      if (speakBtn) {
+        const text = speakBtn.dataset.speak || "";
+        speakText(text, speakBtn);
       }
       if (feedbackBtn && !isGuestMode()) {
         const value = feedbackBtn.dataset.feedback;
@@ -869,6 +1011,10 @@ document.addEventListener("DOMContentLoaded", () => {
   window.sendMessage = sendMessage;
   window.switchChat = switchChat;
   window.deleteChat = deleteChat;
+
+  window.addEventListener("pointerdown", () => {
+    try { window.speechSynthesis && window.speechSynthesis.getVoices(); } catch (_) {}
+  }, { once: true });
 
   translatePage();
   applyTheme(getPreferredTheme());

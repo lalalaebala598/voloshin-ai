@@ -1133,3 +1133,42 @@ body.theme-light .app-toast{
     z-index:90 !important;
   }
 }
+
+
+/* ===== voice input ===== */
+.voice-btn{
+  font-size:18px;
+  transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.voice-btn.listening{
+  transform:scale(1.06);
+  box-shadow:0 0 0 6px rgba(73,227,141,.12), 0 0 18px rgba(73,227,141,.35);
+}
+.voice-btn.listening::after{
+  content:"";
+  position:absolute;
+  inset:-3px;
+  border-radius:inherit;
+  border:1px solid rgba(73,227,141,.45);
+  animation:voicePulse 1.2s ease-out infinite;
+}
+@keyframes voicePulse{
+  0%{transform:scale(1);opacity:.9}
+  100%{transform:scale(1.18);opacity:0}
+}
+body.theme-light .voice-btn.listening{
+  box-shadow:0 0 0 6px rgba(73,227,141,.10), 0 0 18px rgba(73,227,141,.22);
+}
+
+
+/* ===== voice output ===== */
+.tool-btn.speak-btn{
+  min-width:44px;
+  font-size:16px;
+}
+.tool-btn.speak-btn.speaking{
+  box-shadow:0 0 0 6px rgba(107,115,255,.10), 0 0 18px rgba(107,115,255,.30);
+}
+body.theme-light .tool-btn.speak-btn.speaking{
+  box-shadow:0 0 0 6px rgba(107,115,255,.08), 0 0 16px rgba(107,115,255,.18);
+}
