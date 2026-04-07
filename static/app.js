@@ -254,6 +254,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
+
+  function applyMobileViewportFix() {
+    if (!window.visualViewport) return;
+    const update = () => {
+      const vv = window.visualViewport;
+      const diff = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty("--keyboard-offset", `${diff}px`);
+      if (document.activeElement === input && diff > 0) {
+        setTimeout(() => scrollToBottom(true), 30);
+      }
+    };
+    update();
+    window.visualViewport.addEventListener("resize", update);
+    window.visualViewport.addEventListener("scroll", update);
+  }
+
   function getConfig() {
     return {
       apiKey: localStorage.getItem("voloshin_groq_api_key") || "",
@@ -1030,6 +1046,7 @@ document.addEventListener("DOMContentLoaded", () => {
     else if (themeMedia.addListener) themeMedia.addListener(handleThemeMediaChange);
   }
   initEvents();
+  applyMobileViewportFix();
   initDropdowns();
   initAutoScroll();
   applyStatus();
