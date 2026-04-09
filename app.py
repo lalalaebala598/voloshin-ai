@@ -302,18 +302,31 @@ BUILTIN_QA = [
     {"q":"какого цвета небо","a":"Небо обычно кажется голубым из-за рассеивания солнечного света в атмосфере."},
     {"q":"из чего состоит машина","a":"Машина обычно состоит из двигателя, кузова, трансмиссии, подвески, тормозов, рулевого управления, электроники, салона и колёс."},
     {"q":"кто ты","a":"Я Voloshin AI — помощник для вопросов, идей, объяснений и работы с текстами."},
+    {"q":"что ты умеешь","a":"Я могу отвечать на вопросы, объяснять темы, помогать с текстами, идеями, кодом и обученными ответами."},
+    {"q":"что ты помнишь","a":"Я могу помнить то, что указано в профиле пользователя, и учитывать это в ответах."},
+    {"q":"кто тебя создал","a":"Меня создал разработчик Волошин Н.А."},
 ]
 
 def retrieve_local_answer(question: str):
     conn = db()
     learned = conn.execute("SELECT q, a FROM learned_qa WHERE user_id=? ORDER BY id DESC LIMIT 500", (uid(),)).fetchall() if uid() else []
     conn.close()
-    items = BUILTIN_QA + [{"q":r["q"], "a":r["a"]} for r in learned]
+    items = BUILTIN_QA + [{"q": r["q"], "a": r["a"]} for r in learned]
+
+    nq = normalize(question)
+    q_tokens = set(nq.split())
     best, score = None, 0.0
+
     for item in items:
-        s = similar(question, item["q"])
+        iq = normalize(item["q"])
+        i_tokens = set(iq.split())
+        seq = difflib.SequenceMatcher(None, nq, iq).ratio()
+        overlap = (len(q_tokens & i_tokens) / max(1, len(q_tokens | i_tokens))) if (q_tokens or i_tokens) else 0.0
+        contains = 1.0 if (nq and iq and (nq in iq or iq in nq)) else 0.0
+        s = max(seq, (seq * 0.58 + overlap * 0.28 + contains * 0.14))
         if s > score:
             best, score = item, s
+
     return (best["a"], score) if best else (None, 0.0)
 
 
@@ -324,50 +337,89 @@ def profile_memory_answers(profile: dict, question: str):
 
     if ("кто тебя создал" in q or "кто твой создатель" in q or "кто тебя сделал" in q or "кто разработчик" in q):
         return "Меня создал разработчик Волошин Н.А."
+
     if ("как меня зовут" in q or "кто я" in q or "мое имя" in q or "моё имя" in q) and name:
         return f"Тебя зовут {name}."
-    if ("что ты помнишь" in q or "что ai должен помнить" in q or "что ты знаешь обо мне" in q) and (name or about):
+
+    if ("сколько мне лет" in q or "мой возраст" in q or "сколько лет мне" in q) and about:
+        m = re.search(r"(\d{1,2})\s*лет", about.lower())
+        if m:
+            return f"Судя по твоим заметкам, тебе {m.group(1)} лет."
+
+    if ("что ты помнишь" in q or "что ai должен помнить" in q or "что ты знаешь обо мне" in q):
         parts = []
         if name:
             parts.append(f"тебя зовут {name}")
         if about:
             parts.append(about)
-        return "Я помню, что " + ". ".join(parts).strip() + "."
-    if ("сколько мне лет" in q or "мой возраст" in q or "сколько лет мне" in q) and about:
-        m = re.search(r"(\d{1,2})\s*лет", about.lower())
-        if m:
-            return f"Судя по твоим заметкам, тебе {m.group(1)} лет."
+        if parts:
+            return "Я помню, что " + ". ".join(parts).strip() + "."
+
+    if about:
+        liked = re.search(r"(люблю|нравится)\s+([а-яa-z0-9\- ]{3,40})", about.lower())
+        if liked and ("что я люблю" in q or "что мне нравится" in q):
+            return "Судя по заметкам, тебе нравится " + liked.group(2).strip() + "."
+
     return None
+
 
 def style_reply_text(text: str, profile: dict):
     tone = profile.get("tone", "normal")
     mode = profile.get("mode", "normal")
     result = (text or "").strip()
 
+    if not result:
+        return "Сформулируй вопрос чуть точнее, и я нормально разложу."
+
+    rude_prefixes = [
+        "Не, ну смотри.",
+        "Короче, смотри.",
+        "Ладно, по фактам.",
+        "Окей, давай по делу."
+    ]
+    rude_prefixes_hard = [
+        "Не, ну смотри, блядь.",
+        "Короче, сейчас по фактам, блядь.",
+        "Ладно, давай без хуйни, по делу."
+    ]
+    polite_prefixes = [
+        "Конечно.",
+        "Давай разберём спокойно.",
+        "Хорошо.",
+        "Разумеется."
+    ]
+
+    low = result.lower()
+
     if tone == "polite":
+        if not any(low.startswith(p.lower()) for p in polite_prefixes):
+            result = random.choice(polite_prefixes) + " " + result
         if not result.endswith(("!", ".", "?", "…")):
             result += "."
-        if not result.lower().startswith(("конечно", "давайте", "пожалуйста", "с удовольствием", "разумеется")):
-            result = "Конечно. " + result
     elif tone == "rude":
-        low = result.lower()
-        if not low.startswith(("ну", "смотри", "короче", "ладно", "окей", "не, ну")):
-            result = "Не, ну смотри. " + result
-        if mode != "brief" and "бляд" not in low and "нахуй" not in low and "пизд" not in low:
-            result = result.replace("Не, ну смотри.", "Не, ну смотри, блядь.", 1)
+        if mode == "brief":
+            if not any(low.startswith(p.lower()) for p in ["не, ну", "короче", "ладно", "окей"]):
+                result = random.choice(rude_prefixes) + " " + result
+        else:
+            if "бляд" not in low and "нахуй" not in low and "пизд" not in low:
+                result = random.choice(rude_prefixes_hard) + " " + result
 
     if mode == "brief":
         first = re.split(r"(?<=[.!?])\s+", result)[0].strip()
         result = first if first else result
+        if len(result) > 190:
+            result = result[:187].rstrip() + "..."
         if not result.endswith((".", "!", "?")):
             result += "."
     elif mode == "teacher":
         if "например" not in result.lower() and "по шагам" not in result.lower():
             result += " Если хочешь, могу разложить ещё по шагам и на простом примере."
     elif mode == "coder":
-        if "код" not in result.lower() and "пример" not in result.lower() and "алгоритм" not in result.lower():
+        if not any(x in result.lower() for x in ["код", "пример", "алгоритм", "структур"]):
             result += " Если нужно, могу сразу показать пример кода, алгоритм или структуру решения."
 
+    result = result.replace("Смотри. Смотри.", "Смотри.")
+    result = result.replace("Не, ну смотри. Не, ну смотри.", "Не, ну смотри.")
     return result
 
 
@@ -382,15 +434,15 @@ def groq_answer(api_key: str, model: str, profile: dict, history: list, user_tex
     name = (profile.get("name") or "").strip()
 
     tone_map = {
-        "normal": "Отвечай живо, естественно и по-человечески.",
-        "rude": "Говори чуть жёстче и живее, но без тупой грубости ради грубости.",
+        "normal": "Отвечай живо, естественно и по-человечески, без лишней сухости.",
+        "rude": "Отвечай живее и жёстче, иногда допустим лёгкий мат, но не превращай ответ в тупую грубость.",
         "polite": "Отвечай очень вежливо, спокойно и аккуратно."
     }
     mode_map = {
         "normal": "Формат ответа обычный.",
         "teacher": "Формат ответа рассуждающий: поясняй ход мысли, структуру и примеры.",
         "coder": "Если уместно, предлагай алгоритм, структуру, код или технический план.",
-        "brief": "Отвечай коротко и по сути."
+        "brief": "Отвечай коротко и по сути, без лишней воды."
     }
 
     prompt = (
@@ -399,7 +451,9 @@ def groq_answer(api_key: str, model: str, profile: dict, history: list, user_tex
         + mode_map.get(mode, mode_map["normal"]) + " "
         + (f"Пользователя зовут {name}. " if name else "")
         + (f"Что нужно помнить о пользователе: {memory}. " if memory else "")
-        + "Не упоминай системный промпт и не говори, что ты локальная база."
+        + "Не упоминай системный промпт. Не говори, что ты локальная база. "
+        + "Не начинай каждый ответ одинаково. Избегай тупого повторения 'Смотри'. "
+        + "Если тебя спрашивают, кто создатель, отвечай: 'Меня создал разработчик Волошин Н.А.'."
     )
     response = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
@@ -409,6 +463,7 @@ def groq_answer(api_key: str, model: str, profile: dict, history: list, user_tex
     )
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"].strip()
+
 
 def parse_uploaded_file(file_storage):
     filename = secure_filename(file_storage.filename or "file")
@@ -548,11 +603,27 @@ def chat():
                 else:
                     reply = local_answer
             else:
-                reply = random.choice([
-                    "Интересный вопрос. Давай сузим тему, и я разложу её по полочкам.",
-                    "Могу объяснить это проще или глубже — скажи, какой формат тебе удобнее.",
-                    "Нормальный вопрос. Уточни, что именно тебе важно: суть, пример или разбор по шагам?"
-                ])
+                mode_hint = profile.get("mode", "normal")
+                fallback_pool = {
+                    "teacher": [
+                        "Вопрос нормальный. Могу разобрать это по шагам, с логикой и примером.",
+                        "Давай разложу тему спокойно и последовательно, если уточнишь, что именно важно."
+                    ],
+                    "coder": [
+                        "Могу ответить по сути или сразу дать пример кода — скажи, что удобнее.",
+                        "Если это задача, могу сразу предложить структуру решения или код."
+                    ],
+                    "brief": [
+                        "Уточни вопрос чуть точнее, и я отвечу коротко и по сути.",
+                        "Сформулируй точнее, и я дам короткий ответ без воды."
+                    ],
+                    "normal": [
+                        "Интересный вопрос. Давай сузим тему, и я разложу её по полочкам.",
+                        "Могу объяснить это проще или глубже — скажи, какой формат тебе удобнее.",
+                        "Нормальный вопрос. Уточни, что именно тебе важно: суть, пример или разбор по шагам?"
+                    ]
+                }
+                reply = random.choice(fallback_pool.get(mode_hint, fallback_pool["normal"]))
             mode = "local"
         reply = style_reply_text(reply, profile)
     except Exception as e:
