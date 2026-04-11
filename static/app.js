@@ -505,6 +505,34 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+
+  function getPinnedChats() {
+    try {
+      return JSON.parse(localStorage.getItem("voloshin_pinned_chats") || "[]");
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function setPinnedChats(items) {
+    localStorage.setItem("voloshin_pinned_chats", JSON.stringify(items.slice(0, 100)));
+  }
+
+  function isPinnedChat(chatId) {
+    return getPinnedChats().includes(String(chatId));
+  }
+
+  function togglePinChat(chatId) {
+    const id = String(chatId);
+    const items = getPinnedChats();
+    const idx = items.indexOf(id);
+    if (idx >= 0) items.splice(idx, 1);
+    else items.unshift(id);
+    setPinnedChats(items);
+    refreshChats();
+    showToast(idx >= 0 ? "Чат откреплён." : "Чат закреплён.");
+  }
+
   function getFavorites() {
     try {
       return JSON.parse(localStorage.getItem("voloshin_favorites") || "[]");
@@ -948,6 +976,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     messages.innerHTML = "";
     addMessage("assistant", "Создаю новый чат...", true);
+    messages.lastElementChild?.classList.add("new-chat-creating");
     const res = await fetch("/new-chat", {method:"POST"});
     const data = await res.json();
     if (!data.ok) return;
@@ -998,22 +1027,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function refreshChats() {
     if (isGuestMode()) {
-      chatList.innerHTML = `<div class="chat-row active"><button class="chat-item"><span class="chat-dot"></span><span class="chat-title">Гостевой чат</span></button><button class="delete-chat-btn" title="Очистить">×</button></div>`;
+      chatList.innerHTML = `<div class="chat-row active"><button class="chat-item"><span class="chat-dot"></span><span class="chat-title">Гостевой чат</span></button><button class="pin-chat-btn active" title="Гостевой режим">📌</button><button class="delete-chat-btn" title="Очистить">×</button></div>`;
       chatList.querySelector(".delete-chat-btn").onclick = () => deleteChat("guest", chatList.firstElementChild);
       return;
     }
     const res = await fetch("/chats");
     const data = await res.json();
+    const pinned = getPinnedChats();
+    const items = [...data.items].sort((a, b) => {
+      const ap = pinned.includes(String(a.id)) ? 1 : 0;
+      const bp = pinned.includes(String(b.id)) ? 1 : 0;
+      if (ap !== bp) return bp - ap;
+      return 0;
+    });
     chatList.innerHTML = "";
-    for (const item of data.items) {
+    for (const item of items) {
       const row = document.createElement("div");
+      const pinnedActive = pinned.includes(String(item.id));
       row.className = "chat-row chat-enter" + (String(item.id) === String(data.current_chat_id) ? " active" : "");
       row.innerHTML = `
         <button class="chat-item"><span class="chat-dot"></span><span class="chat-title"></span></button>
+        <button class="pin-chat-btn ${pinnedActive ? "active" : ""}" title="${pinnedActive ? "Открепить чат" : "Закрепить чат"}">📌</button>
         <button class="delete-chat-btn" title="Удалить чат">×</button>
       `;
       row.querySelector(".chat-title").textContent = item.title;
       row.querySelector(".chat-item").onclick = () => switchChat(item.id);
+      row.querySelector(".pin-chat-btn").onclick = (e) => { e.stopPropagation(); togglePinChat(item.id); };
       row.querySelector(".delete-chat-btn").onclick = () => deleteChat(item.id, row);
       chatList.appendChild(row);
     }
@@ -1325,13 +1364,8 @@ document.addEventListener("DOMContentLoaded", () => {
       settingsModal.classList.remove("hidden");
       document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
     };
-    $("openSettingsAIBtn").onclick = () => { closeSidebarMobile();
-      const cfg = getConfig();
-      modelInput.value = cfg.model;
-      apiKeyInput.value = cfg.apiKey;
-      aiModal.classList.remove("hidden");
-      document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
-    };
+    $("openSettingsAIBtn").textContent = "Избранное";
+    $("openSettingsAIBtn").onclick = () => { closeSidebarMobile(); renderFavorites(); favoritesModal?.classList.remove("hidden"); };
     $("newChatBtn").onclick = () => { closeSidebarMobile(); createNewChat(); };
     $("openProfileBtn").onclick = loadProfileIntoModal;
     $("openAccountModalBtn") && ($("openAccountModalBtn").onclick = () => { profileModal.classList.add("hidden"); accountModal.classList.remove("hidden"); });
