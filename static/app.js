@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const fileInput = document.getElementById("fileInput");
   const dropOverlay = document.getElementById("dropOverlay");
   const favoritesModal = document.getElementById("favoritesModal");
+  const onboardingModal = document.getElementById("onboardingModal");
   const favoritesList = document.getElementById("favoritesList");
 
   const settingsModal = document.getElementById("settingsModal");
@@ -762,6 +763,59 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
+
+  function formatMessageTime(ts = Date.now()) {
+    try {
+      return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(new Date(ts));
+    } catch (_) {
+      const d = new Date(ts);
+      return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    }
+  }
+
+  function appendMessageMeta(wrap, ts = Date.now()) {
+    if (!wrap || wrap.querySelector(".message-meta")) return;
+    const meta = document.createElement("div");
+    meta.className = "message-meta";
+    meta.textContent = formatMessageTime(ts);
+    wrap.appendChild(meta);
+  }
+
+  function hydrateExistingMessages() {
+    document.querySelectorAll(".message-wrap").forEach((wrap, idx) => {
+      if (!wrap.querySelector(".message-meta")) {
+        appendMessageMeta(wrap, Date.now() - ((document.querySelectorAll(".message-wrap").length - idx) * 60000));
+      }
+    });
+  }
+
+  function maybeOpenOnboarding() {
+    if (!onboardingModal) return;
+    const done = localStorage.getItem("voloshin_onboarding_done") === "true";
+    const gateVisible = welcomeGate && welcomeGate.classList.contains("show");
+    if (done || gateVisible) return;
+    setTimeout(() => onboardingModal.classList.remove("hidden"), 500);
+  }
+
+  function closeOnboarding(markDone = true) {
+    if (markDone) localStorage.setItem("voloshin_onboarding_done", "true");
+    onboardingModal?.classList.add("hidden");
+  }
+
+  function handleOnboardingAction(action) {
+    const map = {
+      study: "Объясни тему простыми словами, по шагам и без воды.",
+      creative: "Помоги придумать идеи и оформить текст лучше.",
+      media: "Подскажи, как использовать голос, файлы и быстрые действия."
+    };
+    if (input && map[action]) {
+      input.value = map[action];
+      input.focus();
+    }
+    closeOnboarding(true);
+  }
+
+
   function getConfig() {
     return {
       apiKey: localStorage.getItem("voloshin_groq_api_key") || "",
@@ -863,6 +917,7 @@ document.addEventListener("DOMContentLoaded", () => {
     messages.appendChild(wrap);
     if (animated) animateText(bubble, text);
     else bubble.textContent = text;
+    appendMessageMeta(wrap, Date.now());
     if (role === "assistant") {
       const tools = document.createElement("div");
       tools.innerHTML = messageToolsHTML(text);
@@ -892,6 +947,7 @@ document.addEventListener("DOMContentLoaded", () => {
       : '<span class="dot-wave"></span><span class="dot-wave"></span><span class="dot-wave"></span>';
     wrap.appendChild(bubble);
     messages.appendChild(wrap);
+    appendMessageMeta(wrap, Date.now());
     typingIndicator = wrap;
     scrollToBottom(true);
   }
@@ -1270,6 +1326,7 @@ document.addEventListener("DOMContentLoaded", () => {
     body.dataset.profilePhoto = payload.photo_url;
     syncAvatar();
     applyAccent(getAccent());
+  hydrateExistingMessages();
     updateModeUi();
     pulseSave(sourceBtn);
     showToast(closeAfter ? "Профиль обновлён." : "Сохранено.");
@@ -1459,6 +1516,7 @@ document.addEventListener("DOMContentLoaded", () => {
     welcomeGate.classList.remove("show");
     loadGuestMessages();
     refreshChats();
+    maybeOpenOnboarding();
   }
 
   async function logoutUser() {
@@ -1545,6 +1603,13 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.onclick = () => applyAccent(btn.dataset.accent || "indigo");
     });
     $("openFavoritesBtn") && ($("openFavoritesBtn").onclick = () => { renderFavorites(); favoritesModal?.classList.remove("hidden"); });
+
+    $("closeOnboardingBtn") && ($("closeOnboardingBtn").onclick = () => closeOnboarding(true));
+    $("skipOnboardingBtn") && ($("skipOnboardingBtn").onclick = () => closeOnboarding(true));
+    $("finishOnboardingBtn") && ($("finishOnboardingBtn").onclick = () => closeOnboarding(true));
+    document.querySelectorAll("[data-onboard-action]").forEach(btn => {
+      btn.onclick = () => handleOnboardingAction(btn.dataset.onboardAction || "");
+    });
     $("closeFavoritesBtn") && ($("closeFavoritesBtn").onclick = () => favoritesModal?.classList.add("hidden"));
     $("closeFavoritesBtn2") && ($("closeFavoritesBtn2").onclick = () => favoritesModal?.classList.add("hidden"));
     $("clearFavoritesBtn") && ($("clearFavoritesBtn").onclick = () => { setFavorites([]); renderFavorites(); });

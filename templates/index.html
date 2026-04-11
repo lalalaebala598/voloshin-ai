@@ -676,6 +676,39 @@ window.TRANSLATIONS = {{ translations|tojson }};
 
 <div id="appToast" class="app-toast hidden"></div>
 
+<div class="modal hidden" id="onboardingModal">
+  <div class="modal-card glass-strong onboarding-card">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Voloshin AI beta 2.1</div>
+        <div class="modal-subtitle">Быстрый старт по возможностям.</div>
+      </div>
+      <button class="icon-btn" id="closeOnboardingBtn">×</button>
+    </div>
+    <div class="onboarding-grid">
+      <button class="onboarding-step" data-onboard-action="study">
+        <span class="onboarding-icon">🧠</span>
+        <span class="onboarding-head">Учёба и разбор</span>
+        <span class="onboarding-text">Объяснение тем, шаги, код, задачи.</span>
+      </button>
+      <button class="onboarding-step" data-onboard-action="creative">
+        <span class="onboarding-icon">⚡</span>
+        <span class="onboarding-head">Идеи и тексты</span>
+        <span class="onboarding-text">Рерайт, планы, идеи, оформление мыслей.</span>
+      </button>
+      <button class="onboarding-step" data-onboard-action="media">
+        <span class="onboarding-icon">🎤</span>
+        <span class="onboarding-head">Голос и файлы</span>
+        <span class="onboarding-text">Голосовой ввод, вложения, быстрые действия.</span>
+      </button>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-btn" id="skipOnboardingBtn" type="button">Пропустить</button>
+      <button class="primary-btn" id="finishOnboardingBtn" type="button">Поехали</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal hidden" id="favoritesModal">
   <div class="modal-card glass-strong">
     <div class="modal-header">
