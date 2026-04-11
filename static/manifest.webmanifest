@@ -1,0 +1,9 @@
+{
+  "name": "Voloshin AI",
+  "short_name": "Voloshin AI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e1528",
+  "theme_color": "#0e1528",
+  "icons": []
+}

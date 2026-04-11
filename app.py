@@ -21,8 +21,6 @@ DB_PATH = "voloshin.db"
 UPLOAD_DIR = "uploads"
 SERVER_GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 SERVER_GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
-GROQ_SMART_MODEL = os.getenv("GROQ_SMART_MODEL", "groq/compound-mini").strip()
-GROQ_FAST_MODEL = os.getenv("GROQ_FAST_MODEL", "llama-3.1-8b-instant").strip()
 
 TRANSLATIONS = {
     "ru": {
@@ -429,38 +427,6 @@ def model_history(chat_id: int, limit: int = 14):
     rows = chat_messages(chat_id)[-limit:]
     return [{"role":"assistant" if r["role"]=="assistant" else "user", "content":r["text"]} for r in rows]
 
-def choose_groq_model(user_text: str, profile: dict, history: list) -> str:
-    text = (user_text or "").lower().strip()
-    mode = (profile.get("mode") or "normal").strip()
-
-    hard_markers = [
-        "почему", "объясни", "разбери", "сравни", "проанализируй",
-        "подробно", "по шагам", "рассуж", "код", "python", "javascript",
-        "ошибка", "алгоритм", "архитектур", "докажи", "формула", "матем",
-        "статист", "вероятност", "оптимизац", "линейное программирование"
-    ]
-    current_info_markers = [
-        "сейчас", "на сегодня", "последние", "новости", "курс", "цена",
-        "актуаль", "кто сейчас", "что сейчас", "свеж", "сегодня"
-    ]
-    quick_markers = [
-        "привет", "как дела", "спасибо", "ок", "окей", "понял",
-        "кто ты", "как меня зовут", "что ты помнишь", "кто тебя создал"
-    ]
-
-    is_long = len(text) > 220
-    is_hard = any(x in text for x in hard_markers)
-    is_current = any(x in text for x in current_info_markers)
-    is_quick = len(text) < 80 and any(x in text for x in quick_markers)
-    deep_mode = mode in {"teacher", "coder"}
-
-    if is_current or is_long or is_hard or deep_mode:
-        return GROQ_SMART_MODEL
-    if is_quick:
-        return GROQ_FAST_MODEL
-    return GROQ_FAST_MODEL
-
-
 def groq_answer(api_key: str, model: str, profile: dict, history: list, user_text: str) -> str:
     tone = profile.get("tone","normal")
     mode = profile.get("mode","normal")
@@ -627,9 +593,8 @@ def chat():
             reply = memory_hit
             mode = "memory"
         elif api_key:
-            selected_model = choose_groq_model(message, profile, model_history(cid))
-            reply = groq_answer(api_key, selected_model, profile, model_history(cid), message)
-            mode = "online-smart" if selected_model == GROQ_SMART_MODEL else "online-fast"
+            reply = groq_answer(api_key, model, profile, model_history(cid), message)
+            mode = "online"
         else:
             local_answer, score = retrieve_local_answer(message)
             if local_answer and score >= 0.62:

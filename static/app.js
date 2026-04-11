@@ -15,6 +15,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const photoInput = document.getElementById("photoInput");
   const cameraInput = document.getElementById("cameraInput");
   const fileInput = document.getElementById("fileInput");
+  const dropOverlay = document.getElementById("dropOverlay");
+  const favoritesModal = document.getElementById("favoritesModal");
+  const favoritesList = document.getElementById("favoritesList");
 
   const settingsModal = document.getElementById("settingsModal");
   const authModal = document.getElementById("authModal");
@@ -38,6 +41,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const modeSelect = document.getElementById("modeSelect");
   const languageSelect = document.getElementById("languageSelect");
   const themeSelect = document.getElementById("themeSelect");
+  const autoSpeakToggle = document.getElementById("autoSpeakToggle");
+  const voiceSpeedRange = document.getElementById("voiceSpeedRange");
+  const voiceSpeedValue = document.getElementById("voiceSpeedValue");
+  const accentGrid = document.getElementById("accentGrid");
+  const installAppBtn = document.getElementById("installAppBtn");
   const settingsVoiceGenderSelect = document.getElementById("settingsVoiceGenderSelect");
   const accountEmail = document.getElementById("accountEmail");
   const currentAccountPassword = document.getElementById("currentAccountPassword");
@@ -256,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const voice = getPreferredVoice();
     if (voice) utterance.voice = voice;
     utterance.lang = voice?.lang || ((body.dataset.language || "ru") === "ru" ? "ru-RU" : "en-US");
-    utterance.rate = 0.98;
+    utterance.rate = getVoiceSettings().speed;
     utterance.pitch = 0.86;
     utterance.volume = 1;
     utterance.onend = () => stopSpeaking();
@@ -327,6 +335,295 @@ document.addEventListener("DOMContentLoaded", () => {
         brief: "Напиши сообщение... Ответ будет короче"
       }[mode] || "Напиши сообщение...";
     }
+  }
+
+
+
+  function getVoiceSettings() {
+    return {
+      autoSpeak: localStorage.getItem("voloshin_auto_speak") === "true",
+      speed: parseFloat(localStorage.getItem("voloshin_voice_speed") || "0.95") || 0.95
+    };
+  }
+
+  function updateVoiceUi() {
+    const cfg = getVoiceSettings();
+    if (autoSpeakToggle) autoSpeakToggle.checked = !!cfg.autoSpeak;
+    if (voiceSpeedRange) voiceSpeedRange.value = String(cfg.speed);
+    if (voiceSpeedValue) voiceSpeedValue.textContent = `${cfg.speed.toFixed(2)}x`;
+  }
+
+  async function runAssistantTool(action, sourceText) {
+    const base = String(sourceText || "").trim();
+    if (!base) return;
+    const map = {
+      shorter: `Сделай этот текст короче и плотнее, сохрани смысл:\n\n${base}`,
+      simpler: `Объясни этот текст проще, понятнее и человеческим языком:\n\n${base}`,
+      rewrite: `Перепиши этот текст по-другому, но сохрани смысл:\n\n${base}`,
+      continue: `Продолжи мысль в том же стиле, без повторов:\n\n${base}`
+    };
+    const prompt = map[action];
+    if (!prompt) return;
+    if (isGuestMode()) {
+      addMessage("assistant", "В гостевом режиме продвинутые инструменты ограничены. Для полной версии лучше войти в аккаунт.", true);
+      saveGuestMessages();
+      return;
+    }
+    showTyping(prompt.length > 140);
+    try {
+      const cfg = getConfig();
+      const res = await fetch("/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({message: prompt, apiKey: cfg.apiKey, model: cfg.model})
+      });
+      const data = await res.json();
+      hideTyping();
+      addMessage("assistant", data.response || "Нет ответа.", true);
+      applyStatus(data.mode || null);
+      if (getVoiceSettings().autoSpeak) speakText(data.response || "");
+      await refreshChats();
+    } catch (_) {
+      hideTyping();
+      addMessage("assistant", "Ошибка сервера.", true);
+    }
+  }
+
+  async function runComposerTool(tool) {
+    const base = (input?.value || "").trim();
+    if (!base) {
+      showToast("Сначала напиши текст или запрос.");
+      return;
+    }
+    const map = {
+      rewrite: `Перепиши этот текст лучше, сохрани смысл:\n\n${base}`,
+      summary: `Сделай из этого короткий конспект:\n\n${base}`,
+      translate: `Переведи это на английский и ниже дай обратный перевод на русский:\n\n${base}`,
+      plan: `Сделай из этого пошаговый план действий:\n\n${base}`,
+      ideas: `Дай 7 сильных идей по этой теме:\n\n${base}`,
+      code: `Если это можно автоматизировать или решить кодом, предложи код или алгоритм:\n\n${base}`
+    };
+    const prompt = map[tool];
+    if (!prompt) return;
+    input.value = "";
+    if (isGuestMode()) {
+      addMessage("user", base, false);
+      showTyping();
+      setTimeout(() => {
+        hideTyping();
+        addMessage("assistant", guestAnswer(base), true);
+        saveGuestMessages();
+      }, 250);
+      return;
+    }
+    showTyping(prompt.length > 140);
+    try {
+      const cfg = getConfig();
+      const res = await fetch("/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({message: prompt, apiKey: cfg.apiKey, model: cfg.model})
+      });
+      const data = await res.json();
+      hideTyping();
+      addMessage("assistant", data.response || "Нет ответа.", true);
+      applyStatus(data.mode || null);
+      if (getVoiceSettings().autoSpeak) speakText(data.response || "");
+      await refreshChats();
+    } catch (_) {
+      hideTyping();
+      addMessage("assistant", "Ошибка сервера.", true);
+    }
+  }
+
+  function setupDragAndDrop() {
+    let dragDepth = 0;
+
+    const showDrop = () => {
+      body.classList.add("drag-over");
+      dropOverlay?.classList.remove("hidden");
+    };
+    const hideDrop = () => {
+      body.classList.remove("drag-over");
+      dropOverlay?.classList.add("hidden");
+    };
+
+    document.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      dragDepth += 1;
+      showDrop();
+    });
+    document.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      showDrop();
+    });
+    document.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) hideDrop();
+    });
+    document.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      hideDrop();
+      const file = e.dataTransfer?.files?.[0];
+      if (file) await uploadFile(file);
+    });
+
+    document.addEventListener("paste", async (e) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const imageItem = items.find(item => item.type && item.type.startsWith("image/"));
+      if (!imageItem) return;
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      await uploadFile(file);
+      showToast("Изображение вставлено из буфера.");
+    });
+  }
+
+
+
+  let deferredInstallPrompt = null;
+
+  function getAccent() {
+    return localStorage.getItem("voloshin_accent") || "indigo";
+  }
+
+  function applyAccent(accent) {
+    body.dataset.accent = accent || "indigo";
+    document.getElementById("themeColorMeta")?.setAttribute("content", body.classList.contains("theme-light") ? "#f3f7ff" : "#0e1528");
+    document.querySelectorAll(".accent-swatch").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.accent === body.dataset.accent);
+    });
+  }
+
+  function getFavorites() {
+    try {
+      return JSON.parse(localStorage.getItem("voloshin_favorites") || "[]");
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function setFavorites(items) {
+    localStorage.setItem("voloshin_favorites", JSON.stringify(items.slice(0, 200)));
+  }
+
+  function addFavorite(text) {
+    const clean = String(text || "").trim();
+    if (!clean) return;
+    const items = getFavorites();
+    if (!items.includes(clean)) {
+      items.unshift(clean);
+      setFavorites(items);
+      showToast("Ответ добавлен в избранное.");
+    } else {
+      showToast("Этот ответ уже в избранном.");
+    }
+  }
+
+  function renderFavorites() {
+    if (!favoritesList) return;
+    const items = getFavorites();
+    if (!items.length) {
+      favoritesList.innerHTML = `<div class="favorite-card"><div class="favorite-text">Пока пусто. Добавляй ответы в избранное через ⭐.</div></div>`;
+      return;
+    }
+    favoritesList.innerHTML = items.map((text, idx) => `
+      <div class="favorite-card">
+        <div class="favorite-text">${escapeHtml(text)}</div>
+        <div class="favorite-tools">
+          <button class="tool-btn" data-favorite-copy="${idx}">Копировать</button>
+          <button class="tool-btn" data-favorite-use="${idx}">Вставить в чат</button>
+          <button class="tool-btn dislike-btn" data-favorite-remove="${idx}">Удалить</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function exportChatAsTxt() {
+    const blocks = Array.from(messages.querySelectorAll(".message"));
+    if (!blocks.length) {
+      showToast("Чат пустой.");
+      return;
+    }
+    const lines = [];
+    blocks.forEach(msg => {
+      const role = msg.classList.contains("assistant") ? "AI" : "USER";
+      const text = msg.querySelector(".message-bubble")?.innerText?.trim() || "";
+      if (text) lines.push(`[${role}] ${text}`);
+    });
+    const blob = new Blob([lines.join("\n\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `voloshin-ai-chat-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyWholeChat() {
+    const blocks = Array.from(messages.querySelectorAll(".message"));
+    if (!blocks.length) {
+      showToast("Чат пустой.");
+      return;
+    }
+    const lines = [];
+    blocks.forEach(msg => {
+      const role = msg.classList.contains("assistant") ? "AI" : "USER";
+      const text = msg.querySelector(".message-bubble")?.innerText?.trim() || "";
+      if (text) lines.push(`[${role}] ${text}`);
+    });
+    await navigator.clipboard.writeText(lines.join("\n\n"));
+    showToast("Чат скопирован.");
+  }
+
+  async function shareCurrentChat() {
+    const blocks = Array.from(messages.querySelectorAll(".message"));
+    if (!blocks.length) {
+      showToast("Чат пустой.");
+      return;
+    }
+    const text = blocks.slice(-10).map(msg => {
+      const role = msg.classList.contains("assistant") ? "AI" : "USER";
+      return `[${role}] ${msg.querySelector(".message-bubble")?.innerText?.trim() || ""}`;
+    }).join("\n\n");
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Voloshin AI", text });
+        return;
+      } catch (_) {}
+    }
+    await navigator.clipboard.writeText(text);
+    showToast("Фрагмент чата скопирован.");
+  }
+
+  function escapeHtml(text) {
+    return String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function registerPWA() {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/static/sw.js").catch(() => {});
+    }
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      installAppBtn?.classList.remove("hidden");
+    });
+    installAppBtn && (installAppBtn.onclick = async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      try { await deferredInstallPrompt.userChoice; } catch (_) {}
+      deferredInstallPrompt = null;
+      installAppBtn.classList.add("hidden");
+    });
   }
 
 
@@ -405,6 +702,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return `<div class="message-tools">
       <button class="tool-btn copy-btn" data-copy="${safe}">${t.copy || "Копировать"}</button>
       <button class="tool-btn speak-btn" data-speak="${safe}" title="Озвучить">🔊</button>
+      <button class="tool-btn" data-favorite="${safe}" title="В избранное">⭐</button>
+      <button class="tool-btn alt-tool" data-assistant-tool="shorter" data-source="${safe}">Короче</button>
+      <button class="tool-btn alt-tool" data-assistant-tool="simpler" data-source="${safe}">Проще</button>
+      <button class="tool-btn alt-tool" data-assistant-tool="rewrite" data-source="${safe}">Переписать</button>
+      <button class="tool-btn alt-tool" data-assistant-tool="continue" data-source="${safe}">Ещё</button>
       <button class="tool-btn like-btn" data-feedback="like" data-text="${safe}">👍</button>
       <button class="tool-btn dislike-btn" data-feedback="dislike" data-text="${safe}">👎</button>
     </div>`;
@@ -590,7 +892,9 @@ document.addEventListener("DOMContentLoaded", () => {
       showTyping(message.length > 140);
       setTimeout(() => {
         hideTyping();
-        addMessage("assistant", guestAnswer(message), true);
+        const guestText = guestAnswer(message);
+        addMessage("assistant", guestText, true);
+        if (getVoiceSettings().autoSpeak) speakText(guestText);
         saveGuestMessages();
       }, 300);
       return;
@@ -610,6 +914,7 @@ document.addEventListener("DOMContentLoaded", () => {
       hideTyping();
       addMessage("assistant", data.response || "Нет ответа.", true);
       applyStatus(data.mode || null);
+      if (getVoiceSettings().autoSpeak) speakText(data.response || "");
       await refreshChats();
     } catch (_) {
       hideTyping();
@@ -787,6 +1092,7 @@ document.addEventListener("DOMContentLoaded", () => {
     body.dataset.profileMode = payload.mode;
     body.dataset.profilePhoto = payload.photo_url;
     syncAvatar();
+  applyAccent(getAccent());
     updateModeUi();
     showToast("Профиль обновлён.");
     profileModal.classList.add("hidden");
@@ -976,6 +1282,7 @@ document.addEventListener("DOMContentLoaded", () => {
       languageSelect.value = body.dataset.language || "ru";
       themeSelect.value = getPreferredTheme();
       if (settingsVoiceGenderSelect) settingsVoiceGenderSelect.value = localStorage.getItem("voloshin_voice_gender") || body.dataset.voiceGender || "male";
+      updateVoiceUi();
       settingsModal.classList.remove("hidden");
       document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
     };
@@ -1037,6 +1344,25 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     $("logoutBtn") && ($("logoutBtn").onclick = logoutUser);
     guestBtn.onclick = startGuestMode;
+
+    document.querySelectorAll(".quick-tool-chip").forEach(btn => {
+      btn.onclick = () => runComposerTool(btn.dataset.tool || "");
+    });
+
+    accentGrid && accentGrid.querySelectorAll("[data-accent]").forEach(btn => {
+      btn.onclick = () => applyAccent(btn.dataset.accent || "indigo");
+    });
+    $("copyChatBtn") && ($("copyChatBtn").onclick = copyWholeChat);
+    $("exportTxtBtn") && ($("exportTxtBtn").onclick = exportChatAsTxt);
+    $("shareChatBtn") && ($("shareChatBtn").onclick = shareCurrentChat);
+    $("openFavoritesBtn") && ($("openFavoritesBtn").onclick = () => { renderFavorites(); favoritesModal?.classList.remove("hidden"); });
+    $("closeFavoritesBtn") && ($("closeFavoritesBtn").onclick = () => favoritesModal?.classList.add("hidden"));
+    $("closeFavoritesBtn2") && ($("closeFavoritesBtn2").onclick = () => favoritesModal?.classList.add("hidden"));
+    $("clearFavoritesBtn") && ($("clearFavoritesBtn").onclick = () => { setFavorites([]); renderFavorites(); });
+    autoSpeakToggle && (autoSpeakToggle.onchange = () => updateVoiceUi());
+    voiceSpeedRange && (voiceSpeedRange.oninput = () => {
+      if (voiceSpeedValue) voiceSpeedValue.textContent = `${parseFloat(voiceSpeedRange.value || "0.95").toFixed(2)}x`;
+    });
     toneSelect && (toneSelect.onchange = () => updateModeUi());
     modeSelect && (modeSelect.onchange = () => updateModeUi());
     voiceGenderSelect && (voiceGenderSelect.onchange = () => updateModeUi());
@@ -1073,6 +1399,8 @@ document.addEventListener("DOMContentLoaded", () => {
     messages.addEventListener("click", async (e) => {
       const copyBtn = e.target.closest(".copy-btn");
       const speakBtn = e.target.closest(".speak-btn");
+      const assistantToolBtn = e.target.closest("[data-assistant-tool]");
+      const favoriteBtn = e.target.closest("[data-favorite]");
       const feedbackBtn = e.target.closest(".like-btn, .dislike-btn");
       if (copyBtn) {
         const text = copyBtn.dataset.copy || "";
@@ -1085,6 +1413,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (speakBtn) {
         const text = speakBtn.dataset.speak || "";
         speakText(text, speakBtn);
+      }
+      if (assistantToolBtn) {
+        await runAssistantTool(assistantToolBtn.dataset.assistantTool || "", assistantToolBtn.dataset.source || "");
+      }
+      if (favoriteBtn) {
+        addFavorite(favoriteBtn.dataset.favorite || "");
       }
       if (feedbackBtn && !isGuestMode()) {
         const value = feedbackBtn.dataset.feedback;
@@ -1134,6 +1468,9 @@ document.addEventListener("DOMContentLoaded", () => {
     else if (themeMedia.addListener) themeMedia.addListener(handleThemeMediaChange);
   }
   initEvents();
+  setupDragAndDrop();
+  updateVoiceUi();
+  registerPWA();
   applyMobileViewportFix();
   initDropdowns();
   initAutoScroll();
