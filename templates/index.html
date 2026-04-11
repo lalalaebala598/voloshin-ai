@@ -98,7 +98,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
 
       
 
-      <div class="sidebar-actions compact-grid action-pair"><button class="secondary-btn" id="openTrainBtn" data-i18n="train">{{ translations.train }}</button><button class="secondary-btn" id="openImageBtn" data-i18n="images">{{ translations.images }}</button></div>
+      <div class="sidebar-actions"><button class="secondary-btn" id="openTrainBtn" data-i18n="train">{{ translations.train }}</button></div>
 
       <div class="sidebar-section">
         <div class="section-title" data-i18n="chat_history">{{ translations.chat_history }}</div>
@@ -136,7 +136,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
           </span>
         </button>
         <div>
-          <div class="top-title"><span class="top-brand-main">Voloshin</span> <span class="top-brand-ai">AI</span> <span class="beta-badge">beta 1.1</span></div>
+          <div class="top-title"><span class="top-brand-main">Voloshin</span> <span class="top-brand-ai">AI</span> <span class="beta-badge">beta 2.0</span></div>
           <div class="top-subtitle" data-i18n="subtitle">{{ translations.subtitle }}</div>
         </div>
       </div>
@@ -200,14 +200,6 @@ window.TRANSLATIONS = {{ translations|tojson }};
     <button class="send-btn" onclick="sendMessage()">➜</button>
     </div>
     <div class="composer-mode-hint" id="composerModeHint"></div>
-    <div class="quick-tools-row" id="quickToolsRow">
-      <button class="quick-tool-chip" data-tool="rewrite">Рерайт</button>
-      <button class="quick-tool-chip" data-tool="summary">Конспект</button>
-      <button class="quick-tool-chip" data-tool="translate">Перевод</button>
-      <button class="quick-tool-chip" data-tool="plan">План</button>
-      <button class="quick-tool-chip" data-tool="ideas">Идеи</button>
-      <button class="quick-tool-chip" data-tool="code">Код</button>
-    </div>
   </main>
 </div>
 
@@ -244,6 +236,8 @@ window.TRANSLATIONS = {{ translations|tojson }};
           <option value="dark">Тёмная</option>
           <option value="light">Светлая</option>
           <option value="system">Авто по системе</option>
+          <option value="violet">Фиолетовая</option>
+          <option value="forest">Зелёная</option>
         </select>
         <button class="model-display-btn custom-display-btn" type="button">
           <span class="custom-display-value"></span>
@@ -253,6 +247,8 @@ window.TRANSLATIONS = {{ translations|tojson }};
           <button class="model-option" data-value="dark" type="button">Тёмная</button>
           <button class="model-option" data-value="light" type="button">Светлая</button>
           <button class="model-option" data-value="system" type="button">Авто по системе</button>
+          <button class="model-option" data-value="violet" type="button">Фиолетовая</button>
+          <button class="model-option" data-value="forest" type="button">Зелёная</button>
         </div>
       </div>
     </div>
@@ -290,21 +286,20 @@ window.TRANSLATIONS = {{ translations|tojson }};
     </div>
     
     <div class="field">
-      <label>Цвет акцента</label>
+      <label>Цвет системы</label>
       <div class="accent-grid" id="accentGrid">
-        <button class="accent-swatch" type="button" data-accent="indigo" title="Индиго"></button>
-        <button class="accent-swatch accent-violet" type="button" data-accent="violet" title="Фиолетовый"></button>
-        <button class="accent-swatch accent-cyan" type="button" data-accent="cyan" title="Голубой"></button>
-        <button class="accent-swatch accent-emerald" type="button" data-accent="emerald" title="Изумрудный"></button>
+        <div class="accent-item"><button class="accent-swatch" type="button" data-accent="indigo" title="Индиго"></button><span>Индиго</span></div>
+        <div class="accent-item"><button class="accent-swatch accent-violet" type="button" data-accent="violet" title="Фиолетовый"></button><span>Фиолет</span></div>
+        <div class="accent-item"><button class="accent-swatch accent-cyan" type="button" data-accent="cyan" title="Голубой"></button><span>Голубой</span></div>
+        <div class="accent-item"><button class="accent-swatch accent-emerald" type="button" data-accent="emerald" title="Изумрудный"></button><span>Зелёный</span></div>
+        <div class="accent-item"><button class="accent-swatch accent-rose" type="button" data-accent="rose" title="Розовый"></button><span>Розовый</span></div>
+        <div class="accent-item"><button class="accent-swatch accent-amber" type="button" data-accent="amber" title="Янтарный"></button><span>Янтарь</span></div>
       </div>
     </div>
 
     <div class="field">
-      <label>Продукт</label>
-      <div class="product-tools-grid">
-        <button class="soft-btn" id="copyChatBtn" type="button">Копировать чат</button>
-        <button class="soft-btn" id="exportTxtBtn" type="button">Экспорт .txt</button>
-        <button class="soft-btn" id="shareChatBtn" type="button">Поделиться</button>
+      <label>Избранное</label>
+      <div class="product-tools-grid single-tool-grid">
         <button class="soft-btn" id="openFavoritesBtn" type="button">Избранные ответы</button>
       </div>
     </div>

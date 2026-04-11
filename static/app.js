@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getPreferredTheme() {
     const saved = localStorage.getItem("voloshin_theme");
-    if (saved === "dark" || saved === "light" || saved === "system") return saved;
+    if (["dark","light","system","violet","forest"].includes(saved)) return saved;
     return "dark";
   }
 
@@ -108,13 +108,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (theme === "system") {
       return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
     }
-    return theme === "light" ? "light" : "dark";
+    if (["violet","forest","light","dark"].includes(theme)) return theme;
+    return "dark";
   }
 
   function applyTheme(theme) {
     const resolved = resolveTheme(theme);
     body.classList.toggle("theme-light", resolved === "light");
+    body.classList.toggle("theme-violet", resolved === "violet");
+    body.classList.toggle("theme-forest", resolved === "forest");
     body.dataset.theme = theme;
+    document.getElementById("themeColorMeta")?.setAttribute("content",
+      resolved === "light" ? "#f3f7ff" :
+      resolved === "violet" ? "#14102a" :
+      resolved === "forest" ? "#0b2318" : "#0e1528"
+    );
   }
 
   function translatePage() {
@@ -702,11 +710,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return `<div class="message-tools">
       <button class="tool-btn copy-btn" data-copy="${safe}">${t.copy || "Копировать"}</button>
       <button class="tool-btn speak-btn" data-speak="${safe}" title="Озвучить">🔊</button>
-      <button class="tool-btn" data-favorite="${safe}" title="В избранное">⭐</button>
-      <button class="tool-btn alt-tool" data-assistant-tool="shorter" data-source="${safe}">Короче</button>
-      <button class="tool-btn alt-tool" data-assistant-tool="simpler" data-source="${safe}">Проще</button>
-      <button class="tool-btn alt-tool" data-assistant-tool="rewrite" data-source="${safe}">Переписать</button>
-      <button class="tool-btn alt-tool" data-assistant-tool="continue" data-source="${safe}">Ещё</button>
+      <div class="more-tools-wrap">
+        <button class="tool-btn more-tools-btn" data-more-tools="toggle" title="Ещё">⋯</button>
+        <div class="more-tools-menu hidden">
+          <button class="tool-btn menu-tool-btn" data-favorite="${safe}">⭐ В избранное</button>
+          <button class="tool-btn menu-tool-btn" data-assistant-tool="shorter" data-source="${safe}">Короче</button>
+          <button class="tool-btn menu-tool-btn" data-assistant-tool="simpler" data-source="${safe}">Проще</button>
+          <button class="tool-btn menu-tool-btn" data-assistant-tool="rewrite" data-source="${safe}">Переписать</button>
+          <button class="tool-btn menu-tool-btn" data-assistant-tool="continue" data-source="${safe}">Ещё</button>
+        </div>
+      </div>
       <button class="tool-btn like-btn" data-feedback="like" data-text="${safe}">👍</button>
       <button class="tool-btn dislike-btn" data-feedback="dislike" data-text="${safe}">👎</button>
     </div>`;
@@ -1031,15 +1044,17 @@ document.addEventListener("DOMContentLoaded", () => {
     showToast(`Загружаю: ${file.name}`);
     try {
       const res = await fetch("/upload-file", {method:"POST", body: form});
-      const data = await res.json();
-      await refreshCurrentChat();
-      if (data.image_url) {
-        addImageMessage(data.image_url, data.filename || "Изображение");
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Ошибка загрузки файла");
       }
+      await refreshCurrentChat();
+      if (data.image_url) addImageMessage(data.image_url, data.filename || "Изображение");
       attachMenu.classList.add("hidden");
       showToast(data.image_url ? "Изображение добавлено." : "Файл добавлен.");
     } catch (e) {
-      showToast("Не удалось загрузить файл.");
+      showToast(e?.message || "Не удалось загрузить файл.");
     }
   }
 
@@ -1073,7 +1088,13 @@ document.addEventListener("DOMContentLoaded", () => {
     else openModal();
   }
 
-  async function saveProfile() {
+  function pulseSave(btn) {
+    if (!btn) return;
+    btn.classList.add("inline-save-success");
+    setTimeout(() => btn.classList.remove("inline-save-success"), 900);
+  }
+
+  async function saveProfile(closeAfter = true, sourceBtn = null) {
     const payload = {
       name: profileName.value.trim(),
       about: profileAbout.value.trim(),
@@ -1092,10 +1113,11 @@ document.addEventListener("DOMContentLoaded", () => {
     body.dataset.profileMode = payload.mode;
     body.dataset.profilePhoto = payload.photo_url;
     syncAvatar();
-  applyAccent(getAccent());
+    applyAccent(getAccent());
     updateModeUi();
-    showToast("Профиль обновлён.");
-    profileModal.classList.add("hidden");
+    pulseSave(sourceBtn);
+    showToast(closeAfter ? "Профиль обновлён." : "Сохранено.");
+    if (closeAfter) profileModal.classList.add("hidden");
   }
 
 
@@ -1156,13 +1178,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function saveSettings() {
     localStorage.setItem("voloshin_theme", themeSelect.value);
+    if (settingsVoiceGenderSelect) {
+      localStorage.setItem("voloshin_voice_gender", settingsVoiceGenderSelect.value);
+      body.dataset.voiceGender = settingsVoiceGenderSelect.value;
+    }
+    if (autoSpeakToggle) localStorage.setItem("voloshin_auto_speak", autoSpeakToggle.checked ? "true" : "false");
+    if (voiceSpeedRange) localStorage.setItem("voloshin_voice_speed", String(voiceSpeedRange.value || "0.95"));
+    localStorage.setItem("voloshin_accent", body.dataset.accent || "indigo");
     applyTheme(themeSelect.value);
-    await fetch("/save-settings", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({language: languageSelect.value})
-    });
-    location.reload();
+    applyAccent(getAccent());
+    try {
+      await fetch("/save-settings", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({language: languageSelect.value})
+      });
+      body.dataset.language = languageSelect.value;
+      translatePage();
+      updateVoiceUi();
+      settingsModal.classList.add("hidden");
+      showToast("Настройки сохранены.");
+    } catch (_) {
+      showToast("Не удалось сохранить настройки.");
+    }
   }
 
   async function saveTrain() {
@@ -1282,6 +1320,7 @@ document.addEventListener("DOMContentLoaded", () => {
       languageSelect.value = body.dataset.language || "ru";
       themeSelect.value = getPreferredTheme();
       if (settingsVoiceGenderSelect) settingsVoiceGenderSelect.value = localStorage.getItem("voloshin_voice_gender") || body.dataset.voiceGender || "male";
+      applyAccent(getAccent());
       updateVoiceUi();
       settingsModal.classList.remove("hidden");
       document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
@@ -1297,7 +1336,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("openProfileBtn").onclick = loadProfileIntoModal;
     $("openAccountModalBtn") && ($("openAccountModalBtn").onclick = () => { profileModal.classList.add("hidden"); accountModal.classList.remove("hidden"); });
     $("openTrainBtn").onclick = () => { closeSidebarMobile(); trainModal.classList.remove("hidden"); };
-    $("openImageBtn").onclick = () => { closeSidebarMobile(); openImageModal(); };
+        if ($("openImageBtn")) $("openImageBtn").onclick = () => { closeSidebarMobile(); openImageModal(); };
 
     $("closeSettingsBtn").onclick = () => settingsModal.classList.add("hidden");
     $("closeSettingsBtn2").onclick = () => settingsModal.classList.add("hidden");
@@ -1316,15 +1355,15 @@ document.addEventListener("DOMContentLoaded", () => {
     $("closeImageBtn").onclick = () => imageModal.classList.add("hidden");
     $("closeImageBtn2").onclick = () => imageModal.classList.add("hidden");
 
-    $("saveProfileBtn").onclick = saveProfile;
+    $("saveProfileBtn").onclick = () => saveProfile(true);
 
     profilePhotoFile && (profilePhotoFile.onchange = () => {
       if (profilePhotoName) profilePhotoName.textContent = profilePhotoFile.files?.[0]?.name || "Файл не выбран";
     });
-    $("saveNameBtn") && ($("saveNameBtn").onclick = saveProfile);
-    $("saveAboutBtn") && ($("saveAboutBtn").onclick = saveProfile);
-    $("saveToneBtn") && ($("saveToneBtn").onclick = saveProfile);
-    $("saveModeBtn") && ($("saveModeBtn").onclick = saveProfile);
+    $("saveNameBtn") && ($("saveNameBtn").onclick = () => saveProfile(false, $("saveNameBtn")));
+    $("saveAboutBtn") && ($("saveAboutBtn").onclick = () => saveProfile(false, $("saveAboutBtn")));
+    $("saveToneBtn") && ($("saveToneBtn").onclick = () => saveProfile(false, $("saveToneBtn")));
+    $("saveModeBtn") && ($("saveModeBtn").onclick = () => saveProfile(false, $("saveModeBtn")));
     $("saveAccountBtn").onclick = saveAccount;
     $("savePhotoBtn").onclick = savePhotoOnly;
     $("logoutFromProfileBtn").onclick = () => logoutConfirmModal.classList.remove("hidden");
@@ -1345,16 +1384,9 @@ document.addEventListener("DOMContentLoaded", () => {
     $("logoutBtn") && ($("logoutBtn").onclick = logoutUser);
     guestBtn.onclick = startGuestMode;
 
-    document.querySelectorAll(".quick-tool-chip").forEach(btn => {
-      btn.onclick = () => runComposerTool(btn.dataset.tool || "");
-    });
-
     accentGrid && accentGrid.querySelectorAll("[data-accent]").forEach(btn => {
       btn.onclick = () => applyAccent(btn.dataset.accent || "indigo");
     });
-    $("copyChatBtn") && ($("copyChatBtn").onclick = copyWholeChat);
-    $("exportTxtBtn") && ($("exportTxtBtn").onclick = exportChatAsTxt);
-    $("shareChatBtn") && ($("shareChatBtn").onclick = shareCurrentChat);
     $("openFavoritesBtn") && ($("openFavoritesBtn").onclick = () => { renderFavorites(); favoritesModal?.classList.remove("hidden"); });
     $("closeFavoritesBtn") && ($("closeFavoritesBtn").onclick = () => favoritesModal?.classList.add("hidden"));
     $("closeFavoritesBtn2") && ($("closeFavoritesBtn2").onclick = () => favoritesModal?.classList.add("hidden"));
@@ -1380,6 +1412,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     document.addEventListener("click", (e) => {
       if (!attachBtn.contains(e.target) && !attachMenu.contains(e.target)) attachMenu.classList.add("hidden");
+      if (!e.target.closest(".more-tools-wrap")) document.querySelectorAll(".more-tools-menu").forEach(m => m.classList.add("hidden"));
     });
 
     document.addEventListener("pointerdown", (e) => {
@@ -1399,9 +1432,16 @@ document.addEventListener("DOMContentLoaded", () => {
     messages.addEventListener("click", async (e) => {
       const copyBtn = e.target.closest(".copy-btn");
       const speakBtn = e.target.closest(".speak-btn");
+      const moreToggleBtn = e.target.closest("[data-more-tools=\"toggle\"]");
       const assistantToolBtn = e.target.closest("[data-assistant-tool]");
       const favoriteBtn = e.target.closest("[data-favorite]");
       const feedbackBtn = e.target.closest(".like-btn, .dislike-btn");
+      if (moreToggleBtn) {
+        const wrap = moreToggleBtn.closest(".more-tools-wrap");
+        const menu = wrap?.querySelector(".more-tools-menu");
+        document.querySelectorAll(".more-tools-menu").forEach(m => { if (m !== menu) m.classList.add("hidden"); });
+        menu?.classList.toggle("hidden");
+      }
       if (copyBtn) {
         const text = copyBtn.dataset.copy || "";
         try {
