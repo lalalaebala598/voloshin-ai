@@ -1326,6 +1326,7 @@ document.addEventListener("DOMContentLoaded", () => {
     body.dataset.profilePhoto = payload.photo_url;
     syncAvatar();
     applyAccent(getAccent());
+  body.classList.add("ui-redesign-ready");
   hydrateExistingMessages();
     updateModeUi();
     pulseSave(sourceBtn);
