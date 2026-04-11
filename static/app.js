@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebar = document.getElementById("sidebar");
   const mobileSidebarCloseBtn = document.getElementById("mobileSidebarCloseBtn");
   const messages = document.getElementById("messages");
+  const chatEmptyState = document.getElementById("chatEmptyState");
   const input = document.getElementById("input");
   const chatList = document.getElementById("chatList");
   const chatSearchInput = document.getElementById("chatSearchInput");
@@ -538,6 +539,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   let deferredInstallPrompt = null;
+  let lastUserPrompt = "";
 
   function getAccent() {
     return localStorage.getItem("voloshin_accent") || "indigo";
@@ -681,6 +683,85 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
+
+  function updateEmptyState() {
+    if (!chatEmptyState) return;
+    const hasMessages = !!messages.querySelector(".message-wrap");
+    chatEmptyState.classList.toggle("hidden", hasMessages);
+  }
+
+  function clearChatView() {
+    messages.innerHTML = "";
+    updateEmptyState();
+  }
+
+  async function regenerateLastAnswer() {
+    const prompt = (lastUserPrompt || "").trim();
+    if (!prompt) {
+      showToast("Нет последнего запроса для пересоздания.");
+      return;
+    }
+
+    if (isGuestMode()) {
+      const wraps = Array.from(messages.querySelectorAll(".message-wrap.msg-assistant"));
+      const lastWrap = wraps[wraps.length - 1];
+      if (lastWrap) {
+        const tools = lastWrap.nextElementSibling?.classList?.contains("message-tools") ? lastWrap.nextElementSibling : null;
+        lastWrap.remove();
+        tools && tools.remove();
+      }
+      showTyping(true);
+      setTimeout(() => {
+        hideTyping();
+        const guestText = guestAnswer(prompt + " Переформулируй по-другому.");
+        addMessage("assistant", guestText, true);
+        if (getVoiceSettings().autoSpeak) speakText(guestText);
+        saveGuestMessages();
+      }, 260);
+      return;
+    }
+
+    // remove last assistant answer from view only
+    const wraps = Array.from(messages.querySelectorAll(".message-wrap.msg-assistant"));
+    const lastWrap = wraps[wraps.length - 1];
+    if (lastWrap) {
+      const next = lastWrap.nextElementSibling;
+      lastWrap.remove();
+      if (next && next.classList.contains("message-tools")) next.remove();
+    }
+    updateEmptyState();
+
+    showTyping(true);
+    try {
+      const cfg = getConfig();
+      const res = await fetch("/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({message: prompt + "\n\nДай другой вариант ответа, без повторов предыдущей формулировки.", apiKey: cfg.apiKey, model: cfg.model})
+      });
+      const data = await res.json();
+      hideTyping();
+      addMessage("assistant", data.response || "Нет ответа.", true);
+      applyStatus(data.mode || null);
+      if (getVoiceSettings().autoSpeak) speakText(data.response || "");
+      await refreshChats();
+    } catch (_) {
+      hideTyping();
+      addMessage("assistant", "Ошибка сервера.", true);
+    }
+  }
+
+  function setupQuickStarts() {
+    document.querySelectorAll("[data-quick-prompt]").forEach(btn => {
+      btn.onclick = () => {
+        if (!input) return;
+        input.value = btn.dataset.quickPrompt || "";
+        input.focus();
+      };
+    });
+  }
+
+
   function getConfig() {
     return {
       apiKey: localStorage.getItem("voloshin_groq_api_key") || "",
@@ -759,11 +840,12 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="more-tools-wrap">
         <button class="tool-btn more-tools-btn" data-more-tools="toggle" title="Ещё">⋯</button>
         <div class="more-tools-menu hidden">
+          <button class="tool-btn menu-tool-btn" data-regenerate="1">↻ Пересоздать</button>
           <button class="tool-btn menu-tool-btn" data-favorite="${safe}">⭐ В избранное</button>
           <button class="tool-btn menu-tool-btn" data-assistant-tool="shorter" data-source="${safe}">Короче</button>
           <button class="tool-btn menu-tool-btn" data-assistant-tool="simpler" data-source="${safe}">Проще</button>
           <button class="tool-btn menu-tool-btn" data-assistant-tool="rewrite" data-source="${safe}">Переписать</button>
-          <button class="tool-btn menu-tool-btn" data-assistant-tool="continue" data-source="${safe}">Ещё</button>
+          <button class="tool-btn menu-tool-btn" data-assistant-tool="continue" data-source="${safe}">Подробнее</button>
         </div>
       </div>
       <button class="tool-btn like-btn" data-feedback="like" data-text="${safe}">👍</button>
@@ -772,6 +854,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function addMessage(role, text, animated = false) {
+    chatEmptyState?.classList.add("hidden");
     const wrap = document.createElement("div");
     wrap.className = `message-wrap ${role === "user" ? "msg-user" : "msg-assistant"}`;
     const bubble = document.createElement("div");
@@ -786,6 +869,7 @@ document.addEventListener("DOMContentLoaded", () => {
       messages.appendChild(tools.firstElementChild);
     }
     scrollToBottom();
+    updateEmptyState();
   }
 
   function addImageMessage(src, caption) {
@@ -946,6 +1030,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!message) return;
 
     if (isGuestMode()) {
+      lastUserPrompt = message;
       addMessage("user", message, false);
       input.value = "";
       showTyping(message.length > 140);
@@ -960,6 +1045,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const cfg = getConfig();
+    lastUserPrompt = message;
     addMessage("user", message, false);
     input.value = "";
     showTyping(message.length > 140);
@@ -985,20 +1071,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function createNewChat() {
     if (isGuestMode()) {
-      messages.innerHTML = "";
+      clearChatView();
       sessionStorage.removeItem("voloshin_guest_messages");
-      addMessage("assistant", "Новый гостевой чат создан. Можешь писать.", true);
       saveGuestMessages();
       refreshChats();
       return;
     }
-    messages.innerHTML = "";
-    addMessage("assistant", "Создаю новый чат...", true);
+    clearChatView();
     const res = await fetch("/new-chat", {method:"POST"});
     const data = await res.json();
     if (!data.ok) return;
-    messages.innerHTML = "";
-    addMessage("assistant", "Новый чат создан. Можешь писать.", true);
+    clearChatView();
+    updateEmptyState();
     await refreshChats();
   }
 
@@ -1035,8 +1119,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     const data = await res.json();
     if (!data.ok) return;
-    messages.innerHTML = "";
+    clearChatView();
     for (const msg of data.messages) addMessage(msg.role, msg.text, false);
+    updateEmptyState();
     await refreshChats();
     if (window.innerWidth <= 980) sidebar.classList.remove("open");
     setCollapseArrow();
@@ -1092,6 +1177,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function refreshCurrentChat() {
     if (isGuestMode()) {
       loadGuestMessages();
+      updateEmptyState();
       refreshChats();
       return;
     }
@@ -1505,6 +1591,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const speakBtn = e.target.closest(".speak-btn");
       const moreToggleBtn = e.target.closest("[data-more-tools=\"toggle\"]");
       const assistantToolBtn = e.target.closest("[data-assistant-tool]");
+      const regenerateBtn = e.target.closest("[data-regenerate]");
       const favoriteBtn = e.target.closest("[data-favorite]");
       const feedbackBtn = e.target.closest(".like-btn, .dislike-btn");
       if (moreToggleBtn) {
@@ -1527,6 +1614,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (assistantToolBtn) {
         await runAssistantTool(assistantToolBtn.dataset.assistantTool || "", assistantToolBtn.dataset.source || "");
+      }
+      if (regenerateBtn) {
+        await regenerateLastAnswer();
       }
       if (favoriteBtn) {
         addFavorite(favoriteBtn.dataset.favorite || "");
@@ -1582,6 +1672,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupDragAndDrop();
   updateVoiceUi();
   registerPWA();
+  setupQuickStarts();
+  updateEmptyState();
   applyMobileViewportFix();
   initDropdowns();
   initAutoScroll();
