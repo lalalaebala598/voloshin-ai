@@ -92,7 +92,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
       </div>
 
       <div class="sidebar-actions">
-        <button class="primary-btn" id="openSettingsAIBtn" data-role="favorites_launcher">{{ translations.connect_ai }}</button>
+        <button class="primary-btn" id="openSettingsAIBtn" data-i18n="connect_ai">{{ translations.connect_ai }}</button>
         <button class="secondary-btn" id="newChatBtn" data-i18n="new_chat">{{ translations.new_chat }}</button>
       </div>
 
@@ -136,7 +136,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
           </span>
         </button>
         <div>
-          <div class="top-title"><span class="top-brand-main">Voloshin</span> <span class="top-brand-ai">AI</span> <span class="beta-badge">beta 2.0</span></div>
+          <div class="top-title"><span class="top-brand-main">Voloshin</span> <span class="top-brand-ai">AI</span> <span class="beta-badge">beta 2.1</span></div>
           <div class="top-subtitle" data-i18n="subtitle">{{ translations.subtitle }}</div>
         </div>
       </div>
@@ -234,6 +234,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
       <div class="select-pill-wrap custom-dropdown-wrap">
         <select id="themeSelect" class="hidden-real-select">
           <option value="dark">Тёмная</option>
+          <option value="blue">Синяя</option>
           <option value="light">Светлая</option>
           <option value="system">Авто по системе</option>
           <option value="violet">Фиолетовая</option>
@@ -245,6 +246,7 @@ window.TRANSLATIONS = {{ translations|tojson }};
         </button>
         <div class="model-dropdown hidden">
           <button class="model-option" data-value="dark" type="button">Тёмная</button>
+          <button class="model-option" data-value="blue" type="button">Синяя</button>
           <button class="model-option" data-value="light" type="button">Светлая</button>
           <button class="model-option" data-value="system" type="button">Авто по системе</button>
           <button class="model-option" data-value="violet" type="button">Фиолетовая</button>
