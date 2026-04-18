@@ -294,33 +294,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   function applyMobileViewportFix() {
-    const update = () => {
+    let rafId = 0;
+
+    const updateNow = () => {
       const vv = window.visualViewport;
-      const height = vv ? vv.height : window.innerHeight;
-      const width = vv ? vv.width : window.innerWidth;
-      document.documentElement.style.setProperty("--vvh", `${height}px`);
+      const vvHeight = vv ? vv.height : window.innerHeight;
+      const vvTop = vv ? vv.offsetTop : 0;
 
-      const keyboardOpen = vv ? (window.innerHeight - vv.height > 140) : false;
-      body.classList.toggle("keyboard-open", keyboardOpen);
+      document.documentElement.style.setProperty("--vvh", `${vvHeight}px`);
 
-      if (keyboardOpen && document.activeElement === input) {
-        setTimeout(() => {
-          scrollToBottom(true);
-          input.scrollIntoView({ block: "nearest", inline: "nearest" });
-        }, 35);
+      const keyboard = Math.max(0, window.innerHeight - (vvHeight + vvTop));
+      const kbOffset = keyboard > 120 ? keyboard : 0;
+      document.documentElement.style.setProperty("--kb-offset", `${kbOffset}px`);
+      body.classList.toggle("keyboard-open", kbOffset > 0);
+
+      if (document.activeElement === input) {
+        setTimeout(() => scrollToBottom(true), 25);
       }
     };
 
+    const update = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateNow);
+    };
+
     update();
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", () => setTimeout(update, 120));
+    window.addEventListener("resize", update, { passive: true });
+    window.addEventListener("orientationchange", () => setTimeout(update, 120), { passive: true });
+
     if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", update);
-      window.visualViewport.addEventListener("scroll", update);
+      window.visualViewport.addEventListener("resize", update, { passive: true });
+      window.visualViewport.addEventListener("scroll", update, { passive: true });
     }
 
-    input && input.addEventListener("focus", () => setTimeout(update, 60));
-    input && input.addEventListener("blur", () => setTimeout(update, 60));
+    input && input.addEventListener("focus", () => setTimeout(update, 60), { passive: true });
+    input && input.addEventListener("blur", () => setTimeout(update, 60), { passive: true });
   }
 
 
