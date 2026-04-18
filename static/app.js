@@ -294,16 +294,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   function applyMobileViewportFix() {
-    if (!window.visualViewport) return;
     const update = () => {
-      document.documentElement.style.setProperty("--keyboard-offset", `0px`);
-      if (document.activeElement === input) {
-        setTimeout(() => scrollToBottom(true), 20);
+      const vv = window.visualViewport;
+      const height = vv ? vv.height : window.innerHeight;
+      const width = vv ? vv.width : window.innerWidth;
+      document.documentElement.style.setProperty("--vvh", `${height}px`);
+
+      const keyboardOpen = vv ? (window.innerHeight - vv.height > 140) : false;
+      body.classList.toggle("keyboard-open", keyboardOpen);
+
+      if (keyboardOpen && document.activeElement === input) {
+        setTimeout(() => {
+          scrollToBottom(true);
+          input.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }, 35);
       }
     };
+
     update();
-    window.visualViewport.addEventListener("resize", update);
-    window.visualViewport.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", () => setTimeout(update, 120));
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", update);
+      window.visualViewport.addEventListener("scroll", update);
+    }
+
+    input && input.addEventListener("focus", () => setTimeout(update, 60));
+    input && input.addEventListener("blur", () => setTimeout(update, 60));
   }
 
 
@@ -1295,7 +1312,7 @@ document.addEventListener("DOMContentLoaded", () => {
     accountPassword.value = "";
     profilePhotoUrl.value = body.dataset.profilePhoto || "";
     document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
-    const openModal = () => profileModal.classList.remove("hidden");
+    const openModal = () => requestAnimationFrame(() => profileModal.classList.remove("hidden"));
     if (window.innerWidth <= 980) setTimeout(openModal, 120);
     else openModal();
   }
@@ -1537,16 +1554,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (settingsVoiceGenderSelect) settingsVoiceGenderSelect.value = localStorage.getItem("voloshin_voice_gender") || body.dataset.voiceGender || "male";
       applyAccent(getAccent());
       updateVoiceUi();
-      settingsModal.classList.remove("hidden");
+      requestAnimationFrame(() => settingsModal.classList.remove("hidden"));
       document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
     };
-    $("openSettingsAIBtn").onclick = () => { closeSidebarMobile();
-      const cfg = getConfig();
-      modelInput.value = cfg.model;
-      apiKeyInput.value = cfg.apiKey;
-      aiModal.classList.remove("hidden");
-      document.querySelectorAll(".custom-dropdown-wrap").forEach(syncDropdown);
-    };
+        $("openFavoritesSideBtn") && ($("openFavoritesSideBtn").onclick = () => { closeSidebarMobile(); renderFavorites(); favoritesModal?.classList.remove("hidden"); });
     $("newChatBtn").onclick = () => { closeSidebarMobile(); createNewChat(); showToast("Новый чат создан."); };
     chatSearchInput && (chatSearchInput.oninput = () => refreshChats());
     $("openProfileBtn").onclick = loadProfileIntoModal;
